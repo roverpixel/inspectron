@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "7001:7001"
+    volumes:
+      - .:/app
+    environment:
+      - FLASK_DEBUG=1
+    # Uncomment the deploy block below to enable GPU support if available on the host.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
