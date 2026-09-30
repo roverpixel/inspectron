@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Decoder-Only Transformer LLM Architecture Visualizer</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- KaTeX for crisp mathematical formulas -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              900: '#0c4a6e',
+            },
+            slateDark: {
+              850: '#111827',
+              900: '#0b0f19',
+              950: '#060911',
+            }
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'monospace'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .glow-cyan {
+      box-shadow: 0 0 25px -5px rgba(14, 165, 233, 0.25);
+    }
+    .glow-purple {
+      box-shadow: 0 0 25px -5px rgba(168, 85, 247, 0.25);
+    }
+    .node-active {
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.35);
+    }
+  </style>
+</head>
+<body class="bg-slateDark-950 text-slate-100 font-sans min-h-screen selection:bg-cyan-500/30 selection:text-cyan-200">
+
+  <header class="border-b border-slate-800 bg-slateDark-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i data-lucide="cpu" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg tracking-tight bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
+            TransformerLens
+          </h1>
+          <p class="text-xs text-slate-400">Interactive Decoder-Only Miniature LLM Architecture</p>
+        </div>
+      </div>
+
+      <!-- Architecture Style Switcher: GPT-2 vs LLaMA -->
+      <div class="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-700/60 shadow-inner">
+        <button id="toggleGpt2" onclick="setArchitecture('gpt2')" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1.5 bg-cyan-600 text-white shadow">
+          <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+          Vanilla GPT-2
+        </button>
+        <button id="toggleLlama" onclick="setArchitecture('llama')" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-all duration-200 flex items-center gap-1.5">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          Modern LLaMA
+        </button>
+      </div>
+
+      <!-- Quick Metrics Counter Badge -->
+      <div class="hidden sm:flex items-center gap-4 text-xs font-mono bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-lg">
+        <span class="text-slate-400">Total Params:</span>
+        <span id="quickTotalParams" class="text-cyan-400 font-bold">142,528</span>
+        <span class="text-slate-600">|</span>
+        <span class="text-slate-400">Context:</span>
+        <span id="quickContext" class="text-indigo-400 font-bold">32 tokens</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    
+    <!-- Top Interactive Playground Bar: Tokenizer Input & Flow Trigger -->
+    <section class="bg-slateDark-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+      <div class="absolute -right-16 -top-16 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <div class="flex-1">
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
+            <i data-lucide="terminal" class="w-4 h-4 text-cyan-400"></i>
+            Live Input Prompt (Simulated Character/Token Decomposition)
+          </label>
+          <div class="relative">
+            <input 
+              type="text" 
+              id="promptInput" 
+              value="To be, or not to be" 
+              class="w-full bg-slate-950 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-cyan-200 focus:outline-none focus:border-cyan-500 font-mono transition"
+              placeholder="Type any short prompt..."
+              maxlength="32"
+              oninput="handlePromptChange()"
+            />
+            <span id="tokenLengthBadge" class="absolute right-3 top-2.5 text-xs font-mono text-slate-500">19 tokens</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 self-end md:self-auto">
+          <button onclick="randomizePrompt()" class="px-3.5 py-2.5 rounded-xl border border-slate-700 hover:border-slate-600 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/60 transition flex items-center gap-1.5">
+            <i data-lucide="shuffle" class="w-3.5 h-3.5"></i> Sample Prompt
+          </button>
+          <button onclick="stepAutoregressive()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-xs shadow-lg shadow-cyan-500/20 transition flex items-center gap-1.5">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i> Predict Next Token
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Token Sequence Chips -->
+      <div class="mt-4 pt-4 border-t border-slate-800/80">
+        <div class="text-xs text-slate-400 mb-2 flex items-center justify-between">
+          <span>Token Stream & Discrete Embed IDs:</span>
+          <span class="text-[11px] text-slate-500 font-mono">Shape: (Batch=1, Seq_Len=<span id="liveSeqLen">19</span>)</span>
+        </div>
+        <div id="tokenChips" class="flex flex-wrap gap-1.5 font-mono text-xs overflow-x-auto pb-1">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left Column: The Pipeline Flowchart (7 cols) -->
+      <div class="lg:col-span-7 space-y-4">
+        
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <i data-lucide="git-commit" class="w-4 h-4 text-cyan-400"></i>
+            Decoder-Only Execution Pipeline
+          </h2>
+          <span class="text-xs text-slate-500">Click any block to inspect tensors & formulas</span>
+        </div>
+
+        <!-- STAGE 1: Input & Embedding Block -->
+        <div id="node-embedding" onclick="selectNode('embedding')" class="cursor-pointer group relative p-4 rounded-2xl bg-slateDark-900 border border-slate-800 hover:border-cyan-500/60 transition duration-200">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 group-hover:scale-105 transition">
+                <i data-lucide="binary" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-semibold text-sm text-slate-100 group-hover:text-cyan-300">1. Embedding Layer</h3>
+                  <span id="posTypeBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700">Learned Absolute</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-0.5">Token Lookup + Positional Encoding Vector Addition</p>
+              </div>
+            </div>
+            <span class="font-mono text-xs bg-slate-950 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-md">
+              (B, T) &rarr; (B, T, d)
+            </span>
+          </div>
+          <!-- Sub-details inline pills -->
+          <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-mono text-slate-400">
+            <span class="bg-slate-950/70 px-2 py-0.5 rounded border border-slate-800/80">W_E: <span class="text-slate-200" id="weShape">Vocab &times; 64</span></span>
+            <span class="bg-slate-950/70 px-2 py-0.5 rounded border border-slate-800/80" id="posEmbedPill">W_pos: <span class="text-slate-200" id="wposShape">32 &times; 64</span></span>
+          </div>
+        </div>
+
+        <!-- Connection line -->
+        <div class="flex justify-center -my-2">
+          <div class="w-0.5 h-6 bg-gradient-to-b from-cyan-500/50 to-indigo-500/50"></div>
+        </div>
+
+        <!-- STAGE 2: Transformer Blocks Wrapper -->
+        <div class="p-4 rounded-2xl bg-slateDark-900/90 border-2 border-dashed border-indigo-500/30 relative">
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+            <div class="flex items-center gap-2">
+              <span class="flex h-2 w-2 rounded-full bg-indigo-400 animate-ping"></span>
+              <span class="text-xs font-bold uppercase tracking-wider text-indigo-300">Transformer Core (Stacked &times;<span id="dispLayersCount">3</span> Blocks)</span>
+            </div>
+            <span class="text-xs font-mono text-indigo-400 bg-indigo-950/60 border border-indigo-800/50 px-2 py-0.5 rounded">
+              State Tensor: (B, T, d_model)
+            </span>
+          </div>
+
+          <div class="space-y-3">
+            <!-- Norm 1 -->
+            <div id="node-norm1" onclick="selectNode('norm1')" class="cursor-pointer group p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-indigo-400/60 transition flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+                  <i data-lucide="gauge" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-200 group-hover:text-indigo-300" id="norm1Title">Pre-LayerNorm 1</h4>
+                  <p class="text-[11px] text-slate-400" id="norm1Desc">Standardizing activations per token prior to attention</p>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-slate-400 bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                (B, T, d) &rarr; (B, T, d)
+              </span>
+            </div>
+
+            <!-- Causal Multi-Head Attention -->
+            <div id="node-mha" onclick="selectNode('mha')" class="cursor-pointer group p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-400 transition">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-2.5">
+                  <div class="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
+                    <i data-lucide="network" class="w-4 h-4"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-semibold text-slate-100 group-hover:text-cyan-300" id="mhaTitle">Causal Multi-Head Self-Attention</h4>
+                    <p class="text-[11px] text-slate-400">Q, K, V Projections &bull; Lower-triangular masking &bull; Softmax</p>
+                  </div>
+                </div>
+                <span class="text-[11px] font-mono text-cyan-400 bg-cyan-950/50 border border-cyan-800/40 px-2 py-0.5 rounded">
+                  h=<span id="dispH">4</span> heads
+                </span>
+              </div>
+              <!-- Internal Head mini schematic -->
+              <div class="mt-2.5 grid grid-cols-4 gap-1 text-center font-mono text-[10px]">
+                <div class="bg-slate-900 border border-slate-800 py-1 rounded text-amber-300">Q [B,h,T,d_k]</div>
+                <div class="bg-slate-900 border border-slate-800 py-1 rounded text-emerald-300">K [B,h,T,d_k]</div>
+                <div class="bg-slate-900 border border-slate-800 py-1 rounded text-purple-300">V [B,h,T,d_k]</div>
+                <div class="bg-cyan-950/80 border border-cyan-800/40 py-1 rounded text-cyan-300">Softmax(QKᵀ/√d)V</div>
+              </div>
+            </div>
+
+            <!-- Residual 1 -->
+            <div class="flex items-center justify-center gap-2 text-[11px] font-mono text-slate-500 py-0.5">
+              <i data-lucide="corner-down-right" class="w-3.5 h-3.5 text-indigo-400"></i>
+              <span>Residual Addition: <span class="text-slate-300">x = x + Attention(Norm(x))</span></span>
+            </div>
+
+            <!-- Norm 2 -->
+            <div id="node-norm2" onclick="selectNode('norm2')" class="cursor-pointer group p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-indigo-400/60 transition flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+                  <i data-lucide="gauge" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-200 group-hover:text-indigo-300" id="norm2Title">Pre-LayerNorm 2</h4>
+                  <p class="text-[11px] text-slate-400">Normalizing features prior to Feed-Forward MLP</p>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-slate-400 bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                (B, T, d) &rarr; (B, T, d)
+              </span>
+            </div>
+
+            <!-- Feed Forward Network -->
+            <div id="node-mlp" onclick="selectNode('mlp')" class="cursor-pointer group p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-400 transition flex items-start justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <i data-lucide="share-2" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-100 group-hover:text-emerald-300" id="mlpTitle">Position-wise Feed Forward (MLP)</h4>
+                  <p class="text-[11px] text-slate-400" id="mlpDesc">2-layer expansion: Linear(d &rarr; 4d) &rarr; ReLU/GELU &rarr; Linear(4d &rarr; d)</p>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded">
+                Dim: 4 &times; d_model
+              </span>
+            </div>
+
+            <!-- Residual 2 -->
+            <div class="flex items-center justify-center gap-2 text-[11px] font-mono text-slate-500 py-0.5">
+              <i data-lucide="corner-down-right" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>Residual Addition: <span class="text-slate-300">x = x + MLP(Norm(x))</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connection line -->
+        <div class="flex justify-center -my-2">
+          <div class="w-0.5 h-6 bg-gradient-to-b from-indigo-500/50 to-purple-500/50"></div>
+        </div>
+
+        <!-- STAGE 3: Final Norm & LM Head -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Final Norm -->
+          <div id="node-finalnorm" onclick="selectNode('finalnorm')" class="cursor-pointer group p-3.5 rounded-2xl bg-slateDark-900 border border-slate-800 hover:border-indigo-400 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                <i data-lucide="sliders" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="text-xs font-semibold text-slate-200" id="finalNormTitle">Final LayerNorm</h3>
+                <p class="text-[11px] text-slate-400">Re-centering output representations</p>
+              </div>
+            </div>
+            <div class="mt-2 text-[11px] font-mono text-slate-400">
+              Output: <span class="text-slate-200">(B, T, d_model)</span>
+            </div>
+          </div>
+
+          <!-- LM Head Projection -->
+          <div id="node-lmhead" onclick="selectNode('lmhead')" class="cursor-pointer group p-3.5 rounded-2xl bg-slateDark-900 border border-slate-800 hover:border-purple-400 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="text-xs font-semibold text-slate-200">LM Head (Projection)</h3>
+                <p class="text-[11px] text-slate-400">Linear transform to vocab logits</p>
+              </div>
+            </div>
+            <div class="mt-2 text-[11px] font-mono text-purple-300">
+              Output: (B, T, Vocab_Size)
+            </div>
+          </div>
+        </div>
+
+        <!-- Connection line -->
+        <div class="flex justify-center -my-2">
+          <div class="w-0.5 h-6 bg-gradient-to-b from-purple-500/50 to-pink-500/50"></div>
+        </div>
+
+        <!-- STAGE 4: Softmax & Sampling -->
+        <div id="node-sampling" onclick="selectNode('sampling')" class="cursor-pointer group p-4 rounded-2xl bg-slateDark-900 border border-slate-800 hover:border-pink-500/70 transition">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                <i data-lucide="dice-5" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-semibold text-sm text-slate-100">Softmax & Multinomial / Greedy Sampling</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Focuses on position [:, -1, :] to output predicted token ID</p>
+              </div>
+            </div>
+            <span class="font-mono text-xs bg-slate-950 border border-slate-800 text-pink-400 px-2.5 py-1 rounded-md">
+              (B, 1) Next Token
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="lg:col-span-5 space-y-5">
+        
+        <!-- Tabbed Inspector Card -->
+        <div class="bg-slateDark-900 border border-slate-800 rounded-2xl p-5 shadow-2xl relative flex flex-col min-h-[580px]">
+          
+          <!-- Inspector Tabs -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+            <div class="flex gap-2">
+              <button id="tabBtn-details" onclick="switchInspectorTab('details')" class="px-3 py-1 rounded-lg text-xs font-semibold bg-cyan-600/30 text-cyan-300 border border-cyan-500/40">
+                Component Inspector
+              </button>
+              <button id="tabBtn-attention" onclick="switchInspectorTab('attention')" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200">
+                Causal Mask Matrix
+              </button>
+              <button id="tabBtn-params" onclick="switchInspectorTab('params')" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200">
+                Param Calculator
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB 1: Node Math & Tensor Inspector -->
+          <div id="inspectorTab-details" class="space-y-4 flex-1">
+            <div class="flex items-center justify-between">
+              <span id="detailBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800 text-cyan-400">Embedding Layer</span>
+              <span id="detailParamsCount" class="text-xs font-mono text-slate-400">Params: 4,096</span>
+            </div>
+
+            <h3 id="detailTitle" class="text-lg font-bold text-white tracking-tight">Token & Positional Embedding</h3>
+            <p id="detailDesc" class="text-xs text-slate-300 leading-relaxed">
+              Maps discrete token integers into a continuous vector space $\mathbb{R}^{d_{model}}$ and injects positional identity so the model understands token ordering.
+            </p>
+
+            <!-- Mathematical Formulation -->
+            <div class="bg-slate-950 border border-slate-800 p-3.5 rounded-xl">
+              <div class="text-[11px] font-mono text-slate-400 mb-1.5 flex items-center justify-between">
+                <span>MATHEMATICAL FORMULATION</span>
+                <span class="text-[10px] text-slate-500">PyTorch equivalent</span>
+              </div>
+              <div id="mathContainer" class="text-sm py-1 font-mono text-cyan-300 overflow-x-auto">
+                <!-- KaTeX injected here -->
+              </div>
+            </div>
+
+            <!-- Tensor Shapes Breakdown -->
+            <div>
+              <div class="text-[11px] font-mono text-slate-400 mb-2">TENSOR TRANSFORMATIONS</div>
+              <div id="tensorShapeList" class="space-y-2 text-xs font-mono">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Architecture Difference Note (GPT-2 vs LLaMA) -->
+            <div id="archDiffBox" class="mt-4 p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+              <div class="flex items-center gap-1.5 text-xs font-semibold text-amber-400 mb-1">
+                <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                <span id="archDiffTitle">GPT-2 Absolute vs LLaMA RoPE</span>
+              </div>
+              <p id="archDiffText" class="text-[11px] text-slate-400 leading-relaxed">
+                Vanilla GPT-2 learns a separate lookup table for positions $0 \dots T-1$. LLaMA applies Rotary Positional Embeddings directly onto the Q and K vectors inside the attention head.
+              </p>
+            </div>
+          </div>
+
+          <!-- TAB 2: Live Causal Attention Heatmap Simulator -->
+          <div id="inspectorTab-attention" class="space-y-4 hidden flex-1">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Causal Mask & Attention Weights</h4>
+                <p class="text-[11px] text-slate-400">Tokens strictly attend to past and current indices ($j \le i$).</p>
+              </div>
+              <span class="text-[10px] font-mono bg-cyan-950 border border-cyan-800 text-cyan-300 px-2 py-0.5 rounded">Head #1</span>
+            </div>
+
+            <div class="relative bg-slate-950 p-3 rounded-xl border border-slate-800 overflow-x-auto">
+              <div id="attentionMatrixContainer" class="inline-block min-w-full">
+                <!-- Dynamically generated grid -->
+              </div>
+            </div>
+
+            <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-cyan-500 rounded-sm"></span> High Attention Weight</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-slate-900 border border-slate-800 rounded-sm"></span> Masked Out ($-\infty$)</span>
+              </div>
+              <p class="text-[11px] text-slate-500 pt-1">
+                Hover over cells to inspect $(Q_i \cdot K_j^\top) / \sqrt{d_k}$ and normalized softmax probabilities.
+              </p>
+            </div>
+          </div>
+
+          <!-- TAB 3: Hyperparameter & Parameter Scaler -->
+          <div id="inspectorTab-params" class="space-y-4 hidden flex-1">
+            <div>
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Live Hyperparameter Tuning</h4>
+              <p class="text-[11px] text-slate-400">Adjust hyperparameters and observe tensor dimension changes & parameter allocations.</p>
+            </div>
+
+            <div class="space-y-3 text-xs">
+              <!-- Vocab Size Slider -->
+              <div>
+                <div class="flex justify-between font-mono text-slate-300 mb-1">
+                  <span>Vocabulary Size ($V$):</span>
+                  <span id="valVocab" class="text-cyan-400 font-bold">64</span>
+                </div>
+                <input type="range" id="sliderVocab" min="32" max="50257" step="32" value="64" class="w-full accent-cyan-500 bg-slate-800" oninput="updateHyperparams()">
+              </div>
+
+              <!-- Context Window Slider -->
+              <div>
+                <div class="flex justify-between font-mono text-slate-300 mb-1">
+                  <span>Block Size / Context ($T$):</span>
+                  <span id="valBlock" class="text-cyan-400 font-bold">32</span>
+                </div>
+                <input type="range" id="sliderBlock" min="8" max="256" step="8" value="32" class="w-full accent-cyan-500 bg-slate-800" oninput="updateHyperparams()">
+              </div>
+
+              <!-- Embedding Dim Slider -->
+              <div>
+                <div class="flex justify-between font-mono text-slate-300 mb-1">
+                  <span>Embedding Dim ($d_{model}$):</span>
+                  <span id="valDim" class="text-cyan-400 font-bold">64</span>
+                </div>
+                <input type="range" id="sliderDim" min="32" max="512" step="32" value="64" class="w-full accent-cyan-500 bg-slate-800" oninput="updateHyperparams()">
+              </div>
+
+              <!-- Heads Slider -->
+              <div>
+                <div class="flex justify-between font-mono text-slate-300 mb-1">
+                  <span>Attention Heads ($h$):</span>
+                  <span id="valHeads" class="text-cyan-400 font-bold">4</span>
+                </div>
+                <input type="range" id="sliderHeads" min="1" max="16" step="1" value="4" class="w-full accent-cyan-500 bg-slate-800" oninput="updateHyperparams()">
+              </div>
+
+              <!-- Layers Slider -->
+              <div>
+                <div class="flex justify-between font-mono text-slate-300 mb-1">
+                  <span>Number of Layers ($L$):</span>
+                  <span id="valLayers" class="text-cyan-400 font-bold">3</span>
+                </div>
+                <input type="range" id="sliderLayers" min="1" max="12" step="1" value="3" class="w-full accent-cyan-500 bg-slate-800" oninput="updateHyperparams()">
+              </div>
+            </div>
+
+            <!-- Parameters Allocation Table -->
+            <div class="border-t border-slate-800 pt-3">
+              <div class="text-[11px] font-mono text-slate-400 mb-2">PARAMETER BREAKDOWN</div>
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-xs space-y-1.5">
+                <div class="flex justify-between text-slate-400">
+                  <span>Token & Pos Embed:</span>
+                  <span id="calcEmbedParams" class="text-slate-200">6,144</span>
+                </div>
+                <div class="flex justify-between text-slate-400">
+                  <span>Attention ($L \times Q,K,V,O$):</span>
+                  <span id="calcAttnParams" class="text-slate-200">49,920</span>
+                </div>
+                <div class="flex justify-between text-slate-400">
+                  <span>MLP Feed-Forward:</span>
+                  <span id="calcMlpParams" class="text-slate-200">99,072</span>
+                </div>
+                <div class="flex justify-between text-slate-400">
+                  <span>LayerNorms / RMSNorms:</span>
+                  <span id="calcNormParams" class="text-slate-200">896</span>
+                </div>
+                <div class="flex justify-between text-slate-400">
+                  <span>LM Output Head:</span>
+                  <span id="calcHeadParams" class="text-slate-200">4,096</span>
+                </div>
+                <div class="border-t border-slate-800 pt-1.5 flex justify-between font-bold text-cyan-400">
+                  <span>Grand Total:</span>
+                  <span id="calcTotalParams">160,128</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Interactive Next Token Probability Distribution Display -->
+        <div class="bg-slateDark-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i>
+              Top Next-Token Logits & Probabilities
+            </h4>
+            <span class="text-[10px] font-mono text-slate-500">Softmax(z_T / Temp)</span>
+          </div>
+
+          <div id="topTokensContainer" class="space-y-2">
+            <!-- Dynamically populated candidate token probability bars -->
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <section class="bg-slateDark-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+      <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
+        <i data-lucide="git-compare" class="w-5 h-5 text-indigo-400"></i>
+        Architectural Comparison: Classical GPT-2 vs. Modern LLaMA
+      </h3>
+      <p class="text-xs text-slate-400 mb-5 max-w-3xl">
+        Why the open-source frontier transitioned from the 2019 Radford et al. baseline to the LLaMA / Mistral / Gemma paradigm:
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-mono">
+        <!-- Feature 1: Positional Embedding -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="text-indigo-400 font-bold">1. Positional Encoding</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> Absolute Learned $W_{pos} \in \mathbb{R}^{T \times d}$. Hard context ceiling.</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> RoPE (Rotary Position Embedding). Multiplies $Q, K$ in 2D pairs by rotation matrices $R_{\Theta, m}$. Preserves relative distance.</div>
+        </div>
+
+        <!-- Feature 2: Normalization -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="text-indigo-400 font-bold">2. Normalization</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> LayerNorm with mean subtraction & standard deviation: $\frac{x-\mu}{\sigma} \gamma + \beta$.</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> RMSNorm. Discards $\mu$ shift; scales only by root mean square. 15% faster memory kernel.</div>
+        </div>
+
+        <!-- Feature 3: Feed Forward Activation -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="text-indigo-400 font-bold">3. Non-Linear Activation</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> Standard 2-layer MLP with GELU or ReLU: $W_2(\text{GELU}(W_1 x))$.</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> SwiGLU Gated Unit: $((\text{Swish}(x W_{gate})) \otimes (x W_{up})) W_{down}$. Higher expressivity.</div>
+        </div>
+
+        <!-- Feature 4: Attention Projection -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="text-indigo-400 font-bold">4. Attention Strategy</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> Multi-Head Attention (MHA). Key and Value caches require $h$ heads per token.</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> Grouped-Query Attention (GQA). Multiple query heads share one KV head, saving 75% KV-cache VRAM.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // State Variables
+    let currentArch = 'gpt2'; // 'gpt2' or 'llama'
+    let selectedNodeId = 'embedding';
+    let currentTab = 'details';
+
+    // Model Hyperparameters
+    let V = 64;       // Vocab Size
+    let T = 32;       // Block Size (context window)
+    let d_model = 64; // Embedding Dimension
+    let h = 4;        // Attention Heads
+    let L = 3;        // Transformer Layers
+
+    // Sample corpus words for synthetic next-token predictions
+    const sampleTokens = [
+      { token: " death", prob: 0.38, logit: 4.8 },
+      { token: " sleep", prob: 0.24, logit: 3.9 },
+      { token: " be", prob: 0.15, logit: 3.2 },
+      { token: " die", prob: 0.11, logit: 2.8 },
+      { token: " dream", prob: 0.07, logit: 2.2 },
+      { token: " suffer", prob: 0.05, logit: 1.9 }
+    ];
+
+    // Node Information Database
+    const nodeData = {
+      embedding: {
+        badge: "Input Processing",
+        titleGpt: "Token Embedding + Absolute Positional Embedding",
+        titleLlama: "Token Embedding (RoPE applied in Attention)",
+        descGpt: "Converts discrete token indices into continuous $d_{model}$-dimensional vectors via a weight matrix $W_E \\in \\mathbb{R}^{V \\times d}$, and adds a learned position vector $W_{pos} \\in \\mathbb{R}^{T \\times d}$.",
+        descLlama: "Token index lookup via $W_E \\in \\mathbb{R}^{V \\times d}$. Positional information is injected later via complex rotary matrices inside the attention heads rather than additive vector additions.",
+        mathGpt: "x_t = \\text{Embedding}(tok_t) + \\text{PosEmbed}(t)",
+        mathLlama: "x_t = \\text{Embedding}(tok_t) \\quad [\\text{RoPE deferred to } Q, K]",
+        shapes: () => [
+          { label: "Input Token IDs", shape: `(Batch=1, Seq_Len=${getPromptTokens().length})` },
+          { label: "Token Embedding (W_E)", shape: `(${V}, ${d_model})` },
+          { label: "Positional Embedding (W_pos)", shape: currentArch === 'gpt2' ? `(${T}, ${d_model})` : `None (RoPE is parameter-free)` },
+          { label: "Output Representation x_0", shape: `(1, ${getPromptTokens().length}, ${d_model})` }
+        ],
+        calcParams: () => currentArch === 'gpt2' ? (V * d_model + T * d_model) : (V * d_model),
+        diffTitle: "Positional Strategy",
+        diffText: "GPT-2 uses absolute learned embeddings which fail to extrapolate beyond context length T. LLaMA uses Rotary Position Embedding (RoPE) which rotates Q and K, capturing relative token distance naturally."
+      },
+      norm1: {
+        badge: "Pre-Attention Normalization",
+        titleGpt: "Pre-LayerNorm 1",
+        titleLlama: "RMSNorm 1",
+        descGpt: "Standardizes activations across the embedding dimension to mean 0 and variance 1 before entering the self-attention mechanism, preventing gradient explosion.",
+        descLlama: "Root Mean Square Normalization (RMSNorm) scales inputs by their root mean square, skipping the mean-centering step for faster computation and lower memory bandwidth.",
+        mathGpt: "\\text{LN}(x) = \\frac{x - \\mu}{\\sqrt{\\sigma^2 + \\epsilon}} \\odot \\gamma + \\beta",
+        mathLlama: "\\text{RMSNorm}(x) = \\frac{x}{\\sqrt{\\frac{1}{d}\\sum_{i=1}^d x_i^2 + \\epsilon}} \\odot \\gamma",
+        shapes: () => [
+          { label: "Input Tensor", shape: `(1, ${getPromptTokens().length}, ${d_model})` },
+          { label: "Scale Factor (gamma)", shape: `(${d_model},)` },
+          { label: "Bias (beta)", shape: currentArch === 'gpt2' ? `(${d_model},)` : `None (No bias in RMSNorm)` },
+          { label: "Normalized Output", shape: `(1, ${getPromptTokens().length}, ${d_model})` }
+        ],
+        calcParams: () => currentArch === 'gpt2' ? (2 * d_model * L) : (d_model * L),
+        diffTitle: "Mean-Centering vs Pure Scaling",
+        diffText: "RMSNorm assumes shifting the mean to zero is unnecessary for transformer stability. Removing the mean calculation provides a 10% to 15% acceleration on GPU hardware."
+      },
+      mha: {
+        badge: "Context Mixing Layer",
+        titleGpt: "Causal Multi-Head Self-Attention (MHA)",
+        titleLlama: "RoPE Causal Attention / Grouped-Query Attention (GQA)",
+        descGpt: "Computes scaled dot-product attention across multiple representation subspaces. A lower-triangular causal mask prevents tokens from attending to subsequent tokens.",
+        descLlama: "Applies Rotary Position Embedding (RoPE) to Query and Key projections, followed by causal masking and grouped KV cache optimization.",
+        mathGpt: "\\text{Attn}(Q, K, V) = \\text{softmax}\\left(\\frac{Q K^\\top}{\\sqrt{d_k}} + M\\right) V",
+        mathLlama: "\\text{Attn}(R_{\\Theta, m} Q_m, R_{\\Theta, n} K_n, V) = \\text{softmax}\\left(\\frac{(R_m Q)(R_n K)^\\top}{\\sqrt{d_k}} + M\\right) V",
+        shapes: () => {
+          const d_k = Math.floor(d_model / h);
+          const seq = getPromptTokens().length;
+          return [
+            { label: "Query / Key / Value Projections", shape: `(1, ${h}, ${seq}, ${d_k})` },
+            { label: "Raw Attention Scores (Q @ K^T)", shape: `(1, ${h}, ${seq}, ${seq})` },
+            { label: "Causal Mask Matrix (tril)", shape: `(${seq}, ${seq}) with -inf in upper right` },
+            { label: "Output Projection W_O", shape: `(${d_model}, ${d_model})` }
+          ];
+        },
+        calcParams: () => {
+          // Q, K, V + Output proj: 4 * d_model^2 per layer * L
+          return 4 * (d_model * d_model) * L;
+        },
+        diffTitle: "MHA vs Grouped-Query Attention",
+        diffText: "In classical GPT-2, every single head stores its own Key and Value tensors. In modern LLaMA architectures, multiple Query heads share single Key/Value heads (GQA), slashing inference memory."
+      },
+      norm2: {
+        badge: "Pre-MLP Normalization",
+        titleGpt: "Pre-LayerNorm 2",
+        titleLlama: "RMSNorm 2",
+        descGpt: "Normalizes the residual-accumulated activations before passing them into the position-wise feed-forward network.",
+        descLlama: "RMSNorm applied prior to the SwiGLU feed-forward projection.",
+        mathGpt: "\\text{LN}(x) = \\frac{x - \\mu}{\\sqrt{\\sigma^2 + \\epsilon}} \\odot \\gamma + \\beta",
+        mathLlama: "\\text{RMSNorm}(x) = \\frac{x}{\\sqrt{\\frac{1}{d}\\sum_{i=1}^d x_i^2 + \\epsilon}} \\odot \\gamma",
+        shapes: () => [
+          { label: "Input Tensor", shape: `(1, ${getPromptTokens().length}, ${d_model})` },
+          { label: "Normalized Output", shape: `(1, ${getPromptTokens().length}, ${d_model})` }
+        ],
+        calcParams: () => currentArch === 'gpt2' ? (2 * d_model * L) : (d_model * L),
+        diffTitle: "Pre-LN vs Post-LN",
+        diffText: "Both GPT-2 and modern LLaMA place normalization BEFORE the sublayer (Pre-LN), creating an unimpeded identity highway along the residual connection."
+      },
+      mlp: {
+        badge: "Token-Level Transformation",
+        titleGpt: "Feed-Forward Network (GELU/ReLU MLP)",
+        titleLlama: "SwiGLU Gated Feed-Forward Network",
+        descGpt: "Expands the embedding dimension by a factor of 4, applies non-linear activation (ReLU or GELU), then projects back down: d -> 4d -> d.",
+        descLlama: "Employs three matrix projections ($W_{gate}, W_{up}, W_{down}$) and the Swish/SiLU activation function. Provides dynamic feature gating.",
+        mathGpt: "\\text{FFN}(x) = \\max(0, x W_1 + b_1) W_2 + b_2",
+        mathLlama: "\\text{SwiGLU}(x) = \\left(\\text{SiLU}(x W_{\\text{gate}}) \\otimes x W_{\\text{up}}\\right) W_{\\text{down}}",
+        shapes: () => {
+          const hidden = currentArch === 'gpt2' ? 4 * d_model : Math.floor((8/3) * d_model);
+          return [
+            { label: "Hidden Expansion Projection", shape: `(${d_model}, ${hidden})` },
+            { label: "Activation Function", shape: currentArch === 'gpt2' ? 'GELU / ReLU' : 'SiLU (Swish) Gating' },
+            { label: "Down Projection", shape: `(${hidden}, ${d_model})` }
+          ];
+        },
+        calcParams: () => {
+          if (currentArch === 'gpt2') {
+            return (d_model * 4 * d_model + 4 * d_model * d_model) * L;
+          } else {
+            const hidden = Math.floor((8 / 3) * d_model);
+            return (3 * d_model * hidden) * L;
+          }
+        },
+        diffTitle: "SwiGLU Expressivity",
+        diffText: "GLU variants consistently outperform standard ReLU/GELU multilayer perceptrons by allowing the model to dynamically gate and suppress unneeded token activations."
+      },
+      finalnorm: {
+        badge: "Final Normalization",
+        titleGpt: "Final LayerNorm",
+        titleLlama: "Final RMSNorm",
+        descGpt: "Normalizes the output of the final transformer block prior to token projection.",
+        descLlama: "Final RMSNorm scaling step before logits calculation.",
+        mathGpt: "x_{\\text{final}} = \\text{LayerNorm}(x_L)",
+        mathLlama: "x_{\\text{final}} = \\text{RMSNorm}(x_L)",
+        shapes: () => [
+          { label: "Input from Block L", shape: `(1, ${getPromptTokens().length}, ${d_model})` },
+          { label: "Normalized Representation", shape: `(1, ${getPromptTokens().length}, ${d_model})` }
+        ],
+        calcParams: () => currentArch === 'gpt2' ? 2 * d_model : d_model,
+        diffTitle: "Preserving Output Scale",
+        diffText: "Standardizes the magnitude of token vectors so that the subsequent linear head produces properly calibrated logits."
+      },
+      lmhead: {
+        badge: "Vocabulary Projection",
+        titleGpt: "Language Model Head (Linear)",
+        titleLlama: "Unembedded Head (Weight Tying optional)",
+        descGpt: "Linear projection from dimension $d_{model}$ to vocabulary size $V$. Each row outputs the unnormalized log-probability (logit) for each character or subword.",
+        descLlama: "Projects the latent vector into vocabulary logits. Often shares weights with the input embedding table (weight tying).",
+        mathGpt: "\\text{Logits} = x_{\\text{final}} W_{\\text{head}} \\in \\mathbb{R}^{B \\times T \\times V}",
+        mathLlama: "\\text{Logits} = x_{\\text{final}} W_{\\text{head}} \\quad [W_{\\text{head}} = W_E^\\top]",
+        shapes: () => [
+          { label: "Final Hidden State", shape: `(1, ${getPromptTokens().length}, ${d_model})` },
+          { label: "Logits Tensor", shape: `(1, ${getPromptTokens().length}, ${V})` }
+        ],
+        calcParams: () => d_model * V,
+        diffTitle: "Weight Tying",
+        diffText: "Many LLMs reuse the input token embedding matrix $W_E$ as the output head transposed ($W_E^\\top$), cutting parameter counts significantly."
+      },
+      sampling: {
+        badge: "Autoregressive Sampling",
+        titleGpt: "Softmax & Multinomial Sampling",
+        titleLlama: "Temperature & Top-p / Top-k Sampling",
+        descGpt: "Selects the final sequence position $[:, -1, :]$, applies Softmax to generate probabilities over $V$, and samples the next discrete token.",
+        descLlama: "Evaluates temperature scaling, top-k truncation, and top-p (nucleus) thresholding before drawing a token.",
+        mathGpt: "P(\\text{tok}_{t+1} = i) = \\frac{\\exp(z_i / \\tau)}{\\sum_j \\exp(z_j / \\tau)}",
+        mathLlama: "P = \\text{Softmax}\\left(\\frac{\\text{logits}}{\\tau}\\right) \\quad \\text{subject to } \\sum_{p \\in \\text{top\\_p}} p \\ge 0.9",
+        shapes: () => [
+          { label: "Last Position Logits", shape: `(1, ${V})` },
+          { label: "Probability Distribution", shape: `(1, ${V}) summing to 1.0` },
+          { label: "Sampled Next Token ID", shape: `Scalar integer (e.g. 42)` }
+        ],
+        calcParams: () => 0,
+        diffTitle: "Greedy vs Stochastic",
+        diffText: "Temperature controls randomness: T->0 corresponds to deterministic argmax (greedy decoding), whereas higher temperatures encourage variety and creativity."
+      }
+    };
+
+    // Helper: Tokenize input string
+    function getPromptTokens() {
+      const val = document.getElementById('promptInput').value || "To be";
+      return Array.from(val);
+    }
+
+    // Switch Architecture (GPT-2 vs LLaMA)
+    function setArchitecture(arch) {
+      currentArch = arch;
+      const btnGpt = document.getElementById('toggleGpt2');
+      const btnLlama = document.getElementById('toggleLlama');
+
+      if (arch === 'gpt2') {
+        btnGpt.className = "px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1.5 bg-cyan-600 text-white shadow";
+        btnLlama.className = "px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-all duration-200 flex items-center gap-1.5";
+        document.getElementById('posTypeBadge').innerText = "Learned Absolute";
+        document.getElementById('norm1Title').innerText = "Pre-LayerNorm 1";
+        document.getElementById('norm2Title').innerText = "Pre-LayerNorm 2";
+        document.getElementById('mlpTitle').innerText = "Position-wise Feed Forward (MLP)";
+        document.getElementById('mlpDesc').innerText = "2-layer expansion: Linear(d -> 4d) -> ReLU/GELU -> Linear(4d -> d)";
+        document.getElementById('finalNormTitle').innerText = "Final LayerNorm";
+        document.getElementById('posEmbedPill').style.display = "inline-block";
+      } else {
+        btnLlama.className = "px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1.5 bg-indigo-600 text-white shadow";
+        btnGpt.className = "px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-all duration-200 flex items-center gap-1.5";
+        document.getElementById('posTypeBadge').innerText = "Rotary RoPE";
+        document.getElementById('norm1Title').innerText = "Pre-RMSNorm 1";
+        document.getElementById('norm2Title').innerText = "Pre-RMSNorm 2";
+        document.getElementById('mlpTitle').innerText = "SwiGLU Gated Feed-Forward";
+        document.getElementById('mlpDesc').innerText = "3 projections: Swish(xW_gate) * xW_up -> W_down";
+        document.getElementById('finalNormTitle').innerText = "Final RMSNorm";
+        document.getElementById('posEmbedPill').style.display = "none";
+      }
+
+      selectNode(selectedNodeId);
+      recalculateParameters();
+    }
+
+    function selectNode(nodeId) {
+      selectedNodeId = nodeId;
+      const data = nodeData[nodeId];
+      if (!data) return;
+
+      // Update active highlight classes
+      document.querySelectorAll('[id^="node-"]').forEach(el => el.classList.remove('node-active'));
+      const activeElement = document.getElementById(`node-${nodeId}`);
+      if (activeElement) activeElement.classList.add('node-active');
+
+      // Update Detail Tab
+      document.getElementById('detailBadge').innerText = data.badge;
+      document.getElementById('detailTitle').innerText = currentArch === 'gpt2' ? data.titleGpt : data.titleLlama;
+      document.getElementById('detailDesc').innerText = currentArch === 'gpt2' ? data.descGpt : data.descLlama;
+      
+      const paramsCount = data.calcParams();
+      document.getElementById('detailParamsCount').innerText = `Params: ${paramsCount.toLocaleString()}`;
+
+      // Render Math via KaTeX
+      const mathFormula = currentArch === 'gpt2' ? data.mathGpt : data.mathLlama;
+      const mathContainer = document.getElementById('mathContainer');
+      try {
+        katex.render(mathFormula, mathContainer, { throwOnError: false, displayMode: true });
+      } catch (e) {
+        mathContainer.innerText = mathFormula;
+      }
+
+      // Render Tensor shapes
+      const shapesList = document.getElementById('tensorShapeList');
+      shapesList.innerHTML = '';
+      data.shapes().forEach(item => {
+        const row = document.createElement('div');
+        row.className = "flex justify-between items-center bg-slate-900/90 border border-slate-800/80 px-2.5 py-1.5 rounded-lg";
+        row.innerHTML = `<span class="text-slate-400">${item.label}:</span><span class="text-cyan-300 font-bold">${item.shape}</span>`;
+        shapesList.appendChild(row);
+      });
+
+      // Update Difference Box
+      document.getElementById('archDiffTitle').innerText = data.diffTitle;
+      document.getElementById('archDiffText').innerText = data.diffText;
+    }
+
+    // Switch right panel tabs
+    function switchInspectorTab(tab) {
+      currentTab = tab;
+      const tabs = ['details', 'attention', 'params'];
+      tabs.forEach(t => {
+        const tabEl = document.getElementById(`inspectorTab-${t}`);
+        const btnEl = document.getElementById(`tabBtn-${t}`);
+        if (t === tab) {
+          tabEl.classList.remove('hidden');
+          btnEl.className = "px-3 py-1 rounded-lg text-xs font-semibold bg-cyan-600/30 text-cyan-300 border border-cyan-500/40";
+        } else {
+          tabEl.classList.add('hidden');
+          btnEl.className = "px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200";
+        }
+      });
+
+      if (tab === 'attention') {
+        renderAttentionMatrix();
+      }
+    }
+
+    function renderAttentionMatrix() {
+      const tokens = getPromptTokens().slice(0, 10); // Show up to 10 for clean grid
+      const container = document.getElementById('attentionMatrixContainer');
+      container.innerHTML = '';
+
+      const table = document.createElement('table');
+      table.className = "w-full border-collapse font-mono text-[10px]";
+
+      // Header row
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      headerRow.innerHTML = `<th class="p-1 text-slate-500"></th>`;
+      tokens.forEach((tok, j) => {
+        const th = document.createElement('th');
+        th.className = "p-1 text-center text-slate-400 border border-slate-800 bg-slate-900/50";
+        th.innerText = tok === ' ' ? '␣' : tok;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      // Body rows
+      const tbody = document.createElement('tbody');
+      tokens.forEach((rowTok, i) => {
+        const tr = document.createElement('tr');
+        
+        // Row header token
+        const rowHeader = document.createElement('td');
+        rowHeader.className = "p-1 text-center text-slate-400 border border-slate-800 bg-slate-900/50 font-bold";
+        rowHeader.innerText = rowTok === ' ' ? '␣' : rowTok;
+        tr.appendChild(rowHeader);
+
+        // Cells
+        tokens.forEach((colTok, j) => {
+          const td = document.createElement('td');
+          td.className = "p-1 text-center border border-slate-900 transition relative cursor-pointer group";
+
+          if (j > i) {
+            // Masked cell (future position)
+            td.className += " bg-slate-950 text-slate-700 select-none";
+            td.innerText = "-∞";
+            td.title = `Masked: Position ${i} cannot look ahead to position ${j}`;
+          } else {
+            // Lower-triangular active attention
+            // Generate synthetic normalized attention weights favoring recent tokens
+            const dist = i - j;
+            let rawWeight = Math.exp(-dist * 0.45);
+            if (j === 0) rawWeight += 0.35; // Attention sink at token 0
+
+            const alpha = Math.min(Math.max(rawWeight * 0.8, 0.15), 0.95);
+            td.style.backgroundColor = `rgba(14, 165, 233, ${alpha})`;
+            td.className += " text-white font-semibold hover:ring-2 hover:ring-white";
+            td.innerText = alpha.toFixed(2);
+            td.title = `Score: Q[${i}] · K[${j}] -> Softmax: ${(alpha * 100).toFixed(1)}%`;
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      container.appendChild(table);
+    }
+
+    function updateHyperparams() {
+      V = parseInt(document.getElementById('sliderVocab').value);
+      T = parseInt(document.getElementById('sliderBlock').value);
+      d_model = parseInt(document.getElementById('sliderDim').value);
+      h = parseInt(document.getElementById('sliderHeads').value);
+      L = parseInt(document.getElementById('sliderLayers').value);
+
+      document.getElementById('valVocab').innerText = V.toLocaleString();
+      document.getElementById('valBlock').innerText = T;
+      document.getElementById('valDim').innerText = d_model;
+      document.getElementById('valHeads').innerText = h;
+      document.getElementById('valLayers').innerText = L;
+
+      document.getElementById('dispLayersCount').innerText = L;
+      document.getElementById('dispH').innerText = h;
+      document.getElementById('weShape').innerText = `${V} × ${d_model}`;
+      document.getElementById('wposShape').innerText = `${T} × ${d_model}`;
+      document.getElementById('quickContext').innerText = `${T} tokens`;
+
+      recalculateParameters();
+      selectNode(selectedNodeId);
+    }
+
+    function recalculateParameters() {
+      // 1. Embeddings
+      const embedParams = currentArch === 'gpt2' ? (V * d_model + T * d_model) : (V * d_model);
+      // 2. Attention (Q, K, V, O)
+      const attnParams = 4 * (d_model * d_model) * L;
+      // 3. MLP
+      let mlpParams = 0;
+      if (currentArch === 'gpt2') {
+        mlpParams = 8 * (d_model * d_model) * L;
+      } else {
+        const hidden = Math.floor((8 / 3) * d_model);
+        mlpParams = 3 * (d_model * hidden) * L;
+      }
+      // 4. Norms
+      const normParams = currentArch === 'gpt2' ? (2 * d_model * (2 * L + 1)) : (d_model * (2 * L + 1));
+      // 5. LM Head
+      const headParams = d_model * V;
+
+      const grandTotal = embedParams + attnParams + mlpParams + normParams + headParams;
+
+      document.getElementById('calcEmbedParams').innerText = embedParams.toLocaleString();
+      document.getElementById('calcAttnParams').innerText = attnParams.toLocaleString();
+      document.getElementById('calcMlpParams').innerText = mlpParams.toLocaleString();
+      document.getElementById('calcNormParams').innerText = normParams.toLocaleString();
+      document.getElementById('calcHeadParams').innerText = headParams.toLocaleString();
+      document.getElementById('calcTotalParams').innerText = grandTotal.toLocaleString();
+      document.getElementById('quickTotalParams').innerText = grandTotal.toLocaleString();
+    }
+
+    // Live Prompt change handler
+    function handlePromptChange() {
+      const input = document.getElementById('promptInput');
+      const val = input.value;
+      const chars = Array.from(val);
+      document.getElementById('tokenLengthBadge').innerText = `${chars.length} tokens`;
+      document.getElementById('liveSeqLen').innerText = chars.length;
+
+      const chipsContainer = document.getElementById('tokenChips');
+      chipsContainer.innerHTML = '';
+
+      chars.forEach((c, idx) => {
+        const chip = document.createElement('div');
+        chip.className = "flex items-center bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-slate-300 gap-1.5 hover:border-cyan-500 transition";
+        chip.innerHTML = `
+          <span class="text-cyan-400 font-bold">${c === ' ' ? '␣' : c}</span>
+          <span class="text-[10px] text-slate-500 font-mono">id:${c.charCodeAt(0) % V}</span>
+        `;
+        chipsContainer.appendChild(chip);
+      });
+
+      if (currentTab === 'attention') {
+        renderAttentionMatrix();
+      }
+      selectNode(selectedNodeId);
+    }
+
+    // Step simulated next token
+    function stepAutoregressive() {
+      const input = document.getElementById('promptInput');
+      const choices = ['?', '!', '.', ' death', ' sleep', ' mortal', ' pause'];
+      const chosen = choices[Math.floor(Math.random() * choices.length)];
+      if (input.value.length < 30) {
+        input.value += chosen;
+        handlePromptChange();
+      }
+      renderNextTokens();
+    }
+
+    function randomizePrompt() {
+      const prompts = [
+        "To be, or not to be",
+        "The quick brown fox",
+        "Attention is all you need",
+        "Once upon a midnight dreary",
+        "In the beginning was the token"
+      ];
+      const randomP = prompts[Math.floor(Math.random() * prompts.length)];
+      document.getElementById('promptInput').value = randomP;
+      handlePromptChange();
+    }
+
+    function renderNextTokens() {
+      const container = document.getElementById('topTokensContainer');
+      container.innerHTML = '';
+
+      // Shuffle slightly for interactive feedback
+      const dynamicTokens = sampleTokens.map(t => ({
+        ...t,
+        prob: Math.max(0.02, t.prob + (Math.random() * 0.08 - 0.04))
+      }));
+      const totalProb = dynamicTokens.reduce((acc, cur) => acc + cur.prob, 0);
+
+      dynamicTokens.forEach(item => {
+        const normProb = (item.prob / totalProb);
+        const percent = (normProb * 100).toFixed(1);
+        const bar = document.createElement('div');
+        bar.className = "space-y-1";
+        bar.innerHTML = `
+          <div class="flex justify-between text-xs font-mono">
+            <span class="text-cyan-300 font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">${item.token}</span>
+            <span class="text-slate-400">${percent}%</span>
+          </div>
+          <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+            <div class="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+          </div>
+        `;
+        container.appendChild(bar);
+      });
+    }
+
+    // Initial window load setup
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      handlePromptChange();
+      updateHyperparams();
+      selectNode('embedding');
+      renderNextTokens();
+    });
+  </script>
+</body>
+</html>
