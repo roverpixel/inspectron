@@ -93,59 +93,161 @@
         </button>
       </div>
 
+      <!-- Active Training Corpus Selector -->
+      <div class="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-700/60 shadow-inner gap-1.5 text-xs font-mono">
+        <span class="text-slate-400 pl-1.5 flex items-center gap-1">
+          <i data-lucide="database" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span class="hidden md:inline">Corpus:</span>
+        </span>
+        <select id="headerCorpusSelect" onchange="onCorpusSelectChange(this.value)" class="bg-slate-950 text-cyan-300 font-semibold border border-slate-800 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-cyan-500 cursor-pointer">
+          <option value="simple_wikipedia">📚 Simple Wikipedia (Hugging Face)</option>
+          <option value="literature">📜 Classic Literature (Poe/Shakespeare)</option>
+          <option value="combined">🌐 Combined (Literature + Wikipedia)</option>
+        </select>
+      </div>
+
       <!-- Quick Metrics Counter Badge -->
-      <div class="hidden sm:flex items-center gap-4 text-xs font-mono bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-lg">
-        <span class="text-slate-400">Total Params:</span>
-        <span id="quickTotalParams" class="text-cyan-400 font-bold">142,528</span>
+      <div class="hidden sm:flex items-center gap-3 text-xs font-mono bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-lg">
+        <span class="flex items-center gap-1.5 text-emerald-400 font-semibold" id="backendStatusBadge">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="backendDeviceText">PyTorch (CPU)</span>
+        </span>
+        <span class="text-slate-600">|</span>
+        <span class="text-slate-400">Loss:</span>
+        <span id="currentLossText" class="text-amber-400 font-bold">--</span>
+        <!-- Mini Loss Sparkline -->
+        <svg id="headerSparklineSvg" class="w-12 h-4 overflow-visible inline-block opacity-80 cursor-pointer" viewBox="0 0 50 16" onclick="switchInspectorTab('loss')" title="Click to view full loss convergence curve">
+          <path id="headerSparklinePath" d="" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+        <span class="text-slate-600">|</span>
+        <span class="text-slate-400">Params:</span>
+        <span id="quickTotalParams" class="text-cyan-400 font-bold">820,817</span>
         <span class="text-slate-600">|</span>
         <span class="text-slate-400">Context:</span>
-        <span id="quickContext" class="text-indigo-400 font-bold">32 tokens</span>
+        <span id="quickContext" class="text-indigo-400 font-bold">64 tokens</span>
       </div>
     </div>
   </header>
 
   <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
     
-    <!-- Top Interactive Playground Bar: Tokenizer Input & Flow Trigger -->
-    <section class="bg-slateDark-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-      <div class="absolute -right-16 -top-16 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
-      <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        <div class="flex-1">
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
-            <i data-lucide="terminal" class="w-4 h-4 text-cyan-400"></i>
-            Live Input Prompt (Simulated Character/Token Decomposition)
-          </label>
-          <div class="relative">
-            <input 
-              type="text" 
-              id="promptInput" 
-              value="To be, or not to be" 
-              class="w-full bg-slate-950 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-cyan-200 focus:outline-none focus:border-cyan-500 font-mono transition"
-              placeholder="Type any short prompt..."
-              maxlength="32"
-              oninput="handlePromptChange()"
-            />
-            <span id="tokenLengthBadge" class="absolute right-3 top-2.5 text-xs font-mono text-slate-500">19 tokens</span>
-          </div>
-        </div>
-        <div class="flex items-center gap-2 self-end md:self-auto">
-          <button onclick="randomizePrompt()" class="px-3.5 py-2.5 rounded-xl border border-slate-700 hover:border-slate-600 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/60 transition flex items-center gap-1.5">
-            <i data-lucide="shuffle" class="w-3.5 h-3.5"></i> Sample Prompt
-          </button>
-          <button onclick="stepAutoregressive()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-xs shadow-lg shadow-cyan-500/20 transition flex items-center gap-1.5">
-            <i data-lucide="play" class="w-3.5 h-3.5"></i> Predict Next Token
-          </button>
-        </div>
+    <!-- Main Feature Navigation Switcher -->
+    <div class="flex items-center justify-between flex-wrap gap-3 pb-2 border-b border-slate-800/80">
+      <div class="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shadow-xl">
+        <button id="navBtn-predictor" onclick="switchMainFeature('predictor')" class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/20">
+          <i data-lucide="play-circle" class="w-4 h-4"></i>
+          Phrase Predictor & Architecture Lab
+        </button>
+        <button id="navBtn-grammar" onclick="switchMainFeature('grammar')" class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all text-slate-400 hover:text-slate-200">
+          <i data-lucide="spell-check" class="w-4 h-4 text-emerald-400"></i>
+          Visual Grammar & Surprisal Checker
+          <span class="px-1.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-800 text-[10px] text-emerald-300 font-mono">New</span>
+        </button>
       </div>
 
-      <!-- Live Token Sequence Chips -->
-      <div class="mt-4 pt-4 border-t border-slate-800/80">
-        <div class="text-xs text-slate-400 mb-2 flex items-center justify-between">
-          <span>Token Stream & Discrete Embed IDs:</span>
-          <span class="text-[11px] text-slate-500 font-mono">Shape: (Batch=1, Seq_Len=<span id="liveSeqLen">19</span>)</span>
+      <div class="text-xs text-slate-400 font-mono hidden md:flex items-center gap-3">
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-cyan-400"></span> Shared PyTorch Weights</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Live Forward Pass</span>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- FEATURE 1: PHRASE PREDICTOR & ARCHITECTURE LAB -->
+    <!-- ========================================== -->
+    <div id="featureView-predictor" class="space-y-6">
+
+    <!-- Top Interactive Playground Bar: Tokenizer Input, Actions & Live Next-Token Probabilities -->
+    <section class="bg-slateDark-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+      <div class="absolute -right-16 -top-16 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
+      
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <!-- Left: Prompt Input, Action Buttons, Token Chips (7 cols) -->
+        <div class="lg:col-span-7 space-y-3.5">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="terminal" class="w-4 h-4 text-cyan-400"></i>
+                Live Input Prompt (Connected to PyTorch Model)
+              </span>
+              <span id="inferenceStatus" class="text-[11px] text-cyan-400 font-mono hidden flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span> Inferring...
+              </span>
+            </label>
+            <div class="relative">
+              <input 
+                type="text" 
+                id="promptInput" 
+                value="Once upon a midnight dreary " 
+                class="w-full bg-slate-950 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-cyan-200 focus:outline-none focus:border-cyan-500 font-mono transition"
+                placeholder="Type any prompt..."
+                maxlength="64"
+                oninput="handlePromptChange()"
+              />
+              <span id="tokenLengthBadge" class="absolute right-3 top-2.5 text-xs font-mono text-slate-500">28 tokens</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="randomizePrompt()" class="px-3 py-2 rounded-xl border border-slate-700 hover:border-slate-600 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/60 transition flex items-center gap-1.5">
+              <i data-lucide="shuffle" class="w-3.5 h-3.5"></i> Sample Prompt
+            </button>
+            <button id="btnTrain" onclick="triggerTrain(100)" class="px-3 py-2 rounded-xl border border-indigo-700/60 hover:border-indigo-500 text-xs font-medium text-indigo-300 hover:text-white bg-indigo-950/60 transition flex items-center gap-1.5">
+              <i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-400"></i> Train +100
+            </button>
+            <button id="btnAnimateFlow" onclick="animateForwardPass()" class="px-3 py-2 rounded-xl border border-purple-700/60 hover:border-purple-500 text-xs font-medium text-purple-300 hover:text-white bg-purple-950/50 transition flex items-center gap-1.5" title="Animate tensor activation pulse across transformer blocks">
+              <i data-lucide="activity" class="w-3.5 h-3.5 text-purple-400"></i> Animate Flow
+            </button>
+
+            <!-- Temperature Slider Pill -->
+            <div class="flex items-center gap-2 bg-slate-950/90 px-3 py-1.5 rounded-xl border border-slate-800 text-xs font-mono shadow-inner">
+              <span class="text-slate-400 flex items-center gap-1">
+                <i data-lucide="thermometer" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span class="text-[11px]">Temp:</span>
+              </span>
+              <span id="tempValueDisplay" class="text-amber-300 font-bold text-xs w-8 text-center">0.70</span>
+              <input 
+                type="range" 
+                id="temperatureSlider" 
+                min="0.05" 
+                max="2.0" 
+                step="0.05" 
+                value="0.70" 
+                class="w-20 accent-amber-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer"
+                oninput="onTemperatureChange(this.value)"
+                title="Temperature controls randomness: Lower = greedy & confident, Higher = creative & exploratory"
+              />
+            </div>
+
+            <button id="btnPredict" onclick="stepAutoregressive()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-xs shadow-lg shadow-cyan-500/20 transition flex items-center gap-1.5">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i> Predict Next Token
+            </button>
+          </div>
+
+          <!-- Live Token Sequence Chips -->
+          <div class="pt-2 border-t border-slate-800/80">
+            <div class="text-[11px] text-slate-400 mb-1.5 flex items-center justify-between">
+              <span>Token Stream & Discrete Embed IDs:</span>
+              <span class="text-[10px] text-slate-500 font-mono">Seq_Len: <span id="liveSeqLen" class="text-indigo-400 font-bold">28</span></span>
+            </div>
+            <div id="tokenChips" class="flex flex-wrap gap-1.5 font-mono text-xs overflow-x-auto max-h-20 pb-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
         </div>
-        <div id="tokenChips" class="flex flex-wrap gap-1.5 font-mono text-xs overflow-x-auto pb-1">
-          <!-- Populated by JS -->
+
+        <!-- Right: Live Top Next-Token Predictions Box (5 cols) - VISIBLE DURING PREDICTION -->
+        <div class="lg:col-span-5 bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-inner">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+              <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i>
+              Top Next-Token Logits & Probabilities
+            </h4>
+            <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">Softmax(z_T)</span>
+          </div>
+          
+          <div id="topTokensContainer" class="space-y-1.5 max-h-[170px] overflow-y-auto pr-1">
+            <!-- Dynamically populated candidate token probability bars from PyTorch -->
+          </div>
         </div>
       </div>
     </section>
@@ -366,15 +468,22 @@
           
           <!-- Inspector Tabs -->
           <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-            <div class="flex gap-2">
-              <button id="tabBtn-details" onclick="switchInspectorTab('details')" class="px-3 py-1 rounded-lg text-xs font-semibold bg-cyan-600/30 text-cyan-300 border border-cyan-500/40">
+            <div class="flex flex-wrap gap-1.5">
+              <button id="tabBtn-details" onclick="switchInspectorTab('details')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-600/30 text-cyan-300 border border-cyan-500/40">
                 Component Inspector
               </button>
-              <button id="tabBtn-attention" onclick="switchInspectorTab('attention')" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200">
-                Causal Mask Matrix
+              <button id="tabBtn-activations" onclick="switchInspectorTab('activations')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200">
+                Activation Flow
               </button>
-              <button id="tabBtn-params" onclick="switchInspectorTab('params')" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200">
-                Param Calculator
+              <button id="tabBtn-attention" onclick="switchInspectorTab('attention')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200">
+                Causal Attention
+              </button>
+              <button id="tabBtn-loss" onclick="switchInspectorTab('loss')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-1">
+                <i data-lucide="trending-down" class="w-3 h-3 text-amber-400"></i>
+                Loss Curve
+              </button>
+              <button id="tabBtn-params" onclick="switchInspectorTab('params')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200">
+                Params
               </button>
             </div>
           </div>
@@ -388,7 +497,7 @@
 
             <h3 id="detailTitle" class="text-lg font-bold text-white tracking-tight">Token & Positional Embedding</h3>
             <p id="detailDesc" class="text-xs text-slate-300 leading-relaxed">
-              Maps discrete token integers into a continuous vector space $\mathbb{R}^{d_{model}}$ and injects positional identity so the model understands token ordering.
+              Maps discrete token integers into a continuous vector space ℝ<sup><i>d</i><sub>model</sub></sup> and injects positional identity so the model understands token ordering.
             </p>
 
             <!-- Mathematical Formulation -->
@@ -417,19 +526,80 @@
                 <span id="archDiffTitle">GPT-2 Absolute vs LLaMA RoPE</span>
               </div>
               <p id="archDiffText" class="text-[11px] text-slate-400 leading-relaxed">
-                Vanilla GPT-2 learns a separate lookup table for positions $0 \dots T-1$. LLaMA applies Rotary Positional Embeddings directly onto the Q and K vectors inside the attention head.
+                Vanilla GPT-2 learns a separate lookup table for positions 0 &hellip; <i>T</i> &minus; 1. LLaMA applies Rotary Positional Embeddings directly onto the Q and K vectors inside the attention head.
               </p>
             </div>
           </div>
 
-          <!-- TAB 2: Live Causal Attention Heatmap Simulator -->
-          <div id="inspectorTab-attention" class="space-y-4 hidden flex-1">
+          <!-- TAB 2: Activation Weights & Latent Flow Inspector -->
+          <div id="inspectorTab-activations" class="space-y-4 hidden flex-1">
             <div class="flex items-center justify-between">
               <div>
-                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Causal Mask & Attention Weights</h4>
-                <p class="text-[11px] text-slate-400">Tokens strictly attend to past and current indices ($j \le i$).</p>
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                  <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+                  Layer Activation Vectors & Flow
+                </h4>
+                <p class="text-[11px] text-slate-400">Latent state <i>x</i><sub><i>l</i></sub> &isin; ℝ<sup><i>d</i><sub>model</sub></sup> evolving across layers for the last token.</p>
               </div>
-              <span class="text-[10px] font-mono bg-cyan-950 border border-cyan-800 text-cyan-300 px-2 py-0.5 rounded">Head #1</span>
+              <button onclick="animateLayerActivations()" class="px-2.5 py-1 rounded-lg bg-cyan-950 border border-cyan-800 text-cyan-300 text-[11px] font-mono hover:bg-cyan-900 transition flex items-center gap-1">
+                <i data-lucide="play-circle" class="w-3.5 h-3.5"></i> Play Flow
+              </button>
+            </div>
+
+            <!-- Layer-by-layer progression cards with L2 Norm, Logit Lens top token, and mini activation bars -->
+            <div id="layerActivationsList" class="space-y-2 text-xs font-mono">
+              <!-- Populated by JS -->
+            </div>
+
+            <!-- Detailed Neuron Activation Heatmap / Weights of Selected Layer -->
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between text-[11px] font-mono">
+                <span class="text-slate-300 font-bold" id="activeLayerTitle">Block 4 Activation Weights</span>
+                <span class="text-slate-500 text-[10px]" id="activeLayerStats">L2: -- | Mean: -- | Std: --</span>
+              </div>
+              <div id="neuronHeatmap" class="grid grid-cols-8 gap-1.5 py-1">
+                <!-- 24 neuron sample cells color-coded cyan/purple -->
+              </div>
+              <div class="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-800/80">
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-cyan-400"></span> Positive (>0)</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-purple-600"></span> Negative (<0)</span>
+                <span>Sampled 24 dims of <i>d</i> = 128</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: Live Causal Attention Heatmap Simulator -->
+          <div id="inspectorTab-attention" class="space-y-3 hidden flex-1">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Causal Multi-Head Attention</h4>
+                <p class="text-[11px] text-slate-400">Attention weights for current prompt sequence.</p>
+              </div>
+              <button id="btnAnimateLayers" onclick="animateAttentionLayers()" class="px-2.5 py-1 rounded-lg bg-cyan-950 border border-cyan-800 text-cyan-300 text-[11px] font-mono hover:bg-cyan-900 transition flex items-center gap-1">
+                <i data-lucide="play" class="w-3 h-3"></i> Animate Layers
+              </button>
+            </div>
+
+            <!-- Layer and Head Pickers -->
+            <div class="flex items-center justify-between bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-400">
+              <div class="flex items-center gap-2">
+                <span>Layer:</span>
+                <div class="flex gap-1" id="attnLayerPills">
+                  <button onclick="setAttnLayer(0)" id="pillLayer-0" class="px-2 py-0.5 rounded bg-cyan-600 text-white font-bold text-[10px]">L1</button>
+                  <button onclick="setAttnLayer(1)" id="pillLayer-1" class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 text-[10px] hover:text-white">L2</button>
+                  <button onclick="setAttnLayer(2)" id="pillLayer-2" class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 text-[10px] hover:text-white">L3</button>
+                  <button onclick="setAttnLayer(3)" id="pillLayer-3" class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 text-[10px] hover:text-white">L4</button>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span>Head:</span>
+                <div class="flex gap-1" id="attnHeadPills">
+                  <button onclick="setAttnHead(0)" id="pillHead-0" class="px-2 py-0.5 rounded bg-indigo-600 text-white font-bold text-[10px]">H1</button>
+                  <button onclick="setAttnHead(1)" id="pillHead-1" class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 text-[10px] hover:text-white">H2</button>
+                  <button onclick="setAttnHead(2)" id="pillHead-2" class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 text-[10px] hover:text-white">H3</button>
+                  <button onclick="setAttnHead(3)" id="pillHead-3" class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 text-[10px] hover:text-white">H4</button>
+                </div>
+              </div>
             </div>
 
             <div class="relative bg-slate-950 p-3 rounded-xl border border-slate-800 overflow-x-auto">
@@ -441,15 +611,98 @@
             <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1">
               <div class="flex items-center justify-between text-[11px]">
                 <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-cyan-500 rounded-sm"></span> High Attention Weight</span>
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-slate-900 border border-slate-800 rounded-sm"></span> Masked Out ($-\infty$)</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-slate-900 border border-slate-800 rounded-sm"></span> Masked Out (&minus;&infin;)</span>
               </div>
               <p class="text-[11px] text-slate-500 pt-1">
-                Hover over cells to inspect $(Q_i \cdot K_j^\top) / \sqrt{d_k}$ and normalized softmax probabilities.
+                Hover over cells to inspect (<i>Q</i><sub><i>i</i></sub> &middot; <i>K</i><sub><i>j</i></sub><sup>T</sup>) / &radic;<i>d</i><sub><i>k</i></sub> and normalized softmax probabilities.
               </p>
             </div>
           </div>
 
-          <!-- TAB 3: Hyperparameter & Parameter Scaler -->
+          <!-- TAB 4: Training Loss & Convergence Chart -->
+          <div id="inspectorTab-loss" class="space-y-4 hidden flex-1">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                  <i data-lucide="line-chart" class="w-4 h-4 text-amber-400"></i>
+                  Loss Convergence & Training Curve
+                </h4>
+                <p class="text-[11px] text-slate-400">Cross-entropy loss tracked across backpropagation optimization steps.</p>
+              </div>
+              <div class="flex items-center gap-1.5 font-mono text-[11px]">
+                <button onclick="triggerTrain(100)" class="px-2.5 py-1 rounded-lg bg-indigo-950 border border-indigo-800 text-indigo-300 hover:bg-indigo-900 transition flex items-center gap-1">
+                  <i data-lucide="zap" class="w-3 h-3 text-indigo-400"></i> +100 Steps
+                </button>
+                <button onclick="triggerTrain(250)" class="px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-800 text-amber-300 hover:bg-amber-900 transition flex items-center gap-1">
+                  <i data-lucide="flame" class="w-3 h-3 text-amber-400"></i> +250 Steps
+                </button>
+              </div>
+            </div>
+
+            <!-- Metrics row -->
+            <div class="grid grid-cols-3 gap-2 text-center font-mono text-xs">
+              <div class="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                <div class="text-[10px] text-slate-400">Current Loss</div>
+                <div class="text-amber-400 font-bold text-sm" id="chartCurrentLoss">--</div>
+              </div>
+              <div class="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                <div class="text-[10px] text-slate-400">Optimization Step</div>
+                <div class="text-cyan-400 font-bold text-sm" id="chartTotalSteps">--</div>
+              </div>
+              <div class="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                <div class="text-[10px] text-slate-400">Optimizer</div>
+                <div class="text-indigo-400 font-bold text-sm">AdamW 1e-3</div>
+              </div>
+            </div>
+
+            <!-- SVG Line Chart Container -->
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 relative">
+              <div class="flex items-center justify-between text-[10px] font-mono text-slate-500 mb-1">
+                <span>LOSS (Cross-Entropy)</span>
+                <span id="chartStepRange">Step 0 → --</span>
+              </div>
+              <div class="relative w-full h-44">
+                <svg id="lossChartSvg" class="w-full h-full overflow-visible" viewBox="0 0 450 170" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="lossGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.35"/>
+                      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.0"/>
+                    </linearGradient>
+                    <linearGradient id="lossStrokeGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stop-color="#f59e0b"/>
+                      <stop offset="50%" stop-color="#06b6d4"/>
+                      <stop offset="100%" stop-color="#38bdf8"/>
+                    </linearGradient>
+                  </defs>
+                  <!-- Horizontal Grid Lines -->
+                  <g class="text-[9px] font-mono fill-slate-600 stroke-slate-800/80">
+                    <line x1="28" y1="15" x2="445" y2="15" stroke="#1e293b" stroke-dasharray="3,3"/>
+                    <text x="4" y="18" fill="#64748b" font-size="9">4.0</text>
+                    <line x1="28" y1="50" x2="445" y2="50" stroke="#1e293b" stroke-dasharray="3,3"/>
+                    <text x="4" y="53" fill="#64748b" font-size="9">3.0</text>
+                    <line x1="28" y1="85" x2="445" y2="85" stroke="#1e293b" stroke-dasharray="3,3"/>
+                    <text x="4" y="88" fill="#64748b" font-size="9">2.0</text>
+                    <line x1="28" y1="120" x2="445" y2="120" stroke="#1e293b" stroke-dasharray="3,3"/>
+                    <text x="4" y="123" fill="#64748b" font-size="9">1.0</text>
+                    <line x1="28" y1="150" x2="445" y2="150" stroke="#334155"/>
+                    <text x="4" y="153" fill="#64748b" font-size="9">0.0</text>
+                  </g>
+                  <!-- Area & Line Path -->
+                  <path id="lossAreaPath" d="" fill="url(#lossGradient)" />
+                  <path id="lossLinePath" d="" fill="none" stroke="url(#lossStrokeGradient)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- Tracking Circle -->
+                  <circle id="lossCurrentDot" cx="0" cy="0" r="4.5" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5" style="display:none;"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Explanatory note -->
+            <div class="text-[11px] text-slate-400 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 leading-relaxed">
+              <span class="text-cyan-300 font-semibold">Convergence Dynamics:</span> Initial loss starts near &minus;ln(1/<i>V</i>) &asymp; 4.39 (random guessing over 81 vocabulary tokens). As AdamW updates self-attention and MLP weights, loss converges below 0.5, locking in accurate word and syntax predictions.
+            </div>
+          </div>
+
+          <!-- TAB 5: Hyperparameter & Parameter Scaler -->
           <div id="inspectorTab-params" class="space-y-4 hidden flex-1">
             <div>
               <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Live Hyperparameter Tuning</h4>
@@ -460,7 +713,7 @@
               <!-- Vocab Size Slider -->
               <div>
                 <div class="flex justify-between font-mono text-slate-300 mb-1">
-                  <span>Vocabulary Size ($V$):</span>
+                  <span>Vocabulary Size (<i>V</i>):</span>
                   <span id="valVocab" class="text-cyan-400 font-bold">64</span>
                 </div>
                 <input type="range" id="sliderVocab" min="32" max="50257" step="32" value="64" class="w-full accent-cyan-500 bg-slate-800" oninput="updateHyperparams()">
@@ -469,7 +722,7 @@
               <!-- Context Window Slider -->
               <div>
                 <div class="flex justify-between font-mono text-slate-300 mb-1">
-                  <span>Block Size / Context ($T$):</span>
+                  <span>Block Size / Context (<i>T</i>):</span>
                   <span id="valBlock" class="text-cyan-400 font-bold">32</span>
                 </div>
                 <input type="range" id="sliderBlock" min="8" max="256" step="8" value="32" class="w-full accent-cyan-500 bg-slate-800" oninput="updateHyperparams()">
@@ -478,7 +731,7 @@
               <!-- Embedding Dim Slider -->
               <div>
                 <div class="flex justify-between font-mono text-slate-300 mb-1">
-                  <span>Embedding Dim ($d_{model}$):</span>
+                  <span>Embedding Dim (<i>d</i><sub>model</sub>):</span>
                   <span id="valDim" class="text-cyan-400 font-bold">64</span>
                 </div>
                 <input type="range" id="sliderDim" min="32" max="512" step="32" value="64" class="w-full accent-cyan-500 bg-slate-800" oninput="updateHyperparams()">
@@ -487,7 +740,7 @@
               <!-- Heads Slider -->
               <div>
                 <div class="flex justify-between font-mono text-slate-300 mb-1">
-                  <span>Attention Heads ($h$):</span>
+                  <span>Attention Heads (<i>h</i>):</span>
                   <span id="valHeads" class="text-cyan-400 font-bold">4</span>
                 </div>
                 <input type="range" id="sliderHeads" min="1" max="16" step="1" value="4" class="w-full accent-cyan-500 bg-slate-800" oninput="updateHyperparams()">
@@ -496,7 +749,7 @@
               <!-- Layers Slider -->
               <div>
                 <div class="flex justify-between font-mono text-slate-300 mb-1">
-                  <span>Number of Layers ($L$):</span>
+                  <span>Number of Layers (<i>L</i>):</span>
                   <span id="valLayers" class="text-cyan-400 font-bold">3</span>
                 </div>
                 <input type="range" id="sliderLayers" min="1" max="12" step="1" value="3" class="w-full accent-cyan-500 bg-slate-800" oninput="updateHyperparams()">
@@ -508,11 +761,11 @@
               <div class="text-[11px] font-mono text-slate-400 mb-2">PARAMETER BREAKDOWN</div>
               <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-xs space-y-1.5">
                 <div class="flex justify-between text-slate-400">
-                  <span>Token & Pos Embed:</span>
+                  <span>Token &amp; Pos Embed:</span>
                   <span id="calcEmbedParams" class="text-slate-200">6,144</span>
                 </div>
                 <div class="flex justify-between text-slate-400">
-                  <span>Attention ($L \times Q,K,V,O$):</span>
+                  <span>Attention (<i>L</i> &times; <i>Q</i>, <i>K</i>, <i>V</i>, <i>O</i>):</span>
                   <span id="calcAttnParams" class="text-slate-200">49,920</span>
                 </div>
                 <div class="flex justify-between text-slate-400">
@@ -538,19 +791,18 @@
 
         </div>
 
-        <!-- Interactive Next Token Probability Distribution Display -->
+        <!-- Live Mechanistic Interpretability Quick Guide -->
         <div class="bg-slateDark-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
-          <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center justify-between mb-2">
             <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-              <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i>
-              Top Next-Token Logits & Probabilities
+              <i data-lucide="eye" class="w-4 h-4 text-indigo-400"></i>
+              Model Mechanics & Latent Flow
             </h4>
-            <span class="text-[10px] font-mono text-slate-500">Softmax(z_T / Temp)</span>
+            <span class="text-[10px] font-mono text-indigo-400 bg-indigo-950/60 border border-indigo-800/50 px-2 py-0.5 rounded">Real-Time</span>
           </div>
-
-          <div id="topTokensContainer" class="space-y-2">
-            <!-- Dynamically populated candidate token probability bars -->
-          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            As you type or step predictions, each token executes through 4 Transformer blocks. Switch to the <strong class="text-cyan-300">Activation Flow</strong> or <strong class="text-cyan-300">Causal Mask</strong> tab above to inspect live layer activations and multi-head attention maps.
+          </p>
         </div>
 
       </div>
@@ -570,32 +822,325 @@
         <!-- Feature 1: Positional Embedding -->
         <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
           <div class="text-indigo-400 font-bold">1. Positional Encoding</div>
-          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> Absolute Learned $W_{pos} \in \mathbb{R}^{T \times d}$. Hard context ceiling.</div>
-          <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> RoPE (Rotary Position Embedding). Multiplies $Q, K$ in 2D pairs by rotation matrices $R_{\Theta, m}$. Preserves relative distance.</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> Absolute Learned <i>W</i><sub>pos</sub> &isin; ℝ<sup><i>T</i> &times; <i>d</i></sup>. Hard context ceiling.</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> RoPE (Rotary Position Embedding). Multiplies <i>Q</i>, <i>K</i> in 2D pairs by rotation matrices <i>R</i><sub>&Theta;, <i>m</i></sub>. Preserves relative distance.</div>
         </div>
 
         <!-- Feature 2: Normalization -->
         <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
           <div class="text-indigo-400 font-bold">2. Normalization</div>
-          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> LayerNorm with mean subtraction & standard deviation: $\frac{x-\mu}{\sigma} \gamma + \beta$.</div>
-          <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> RMSNorm. Discards $\mu$ shift; scales only by root mean square. 15% faster memory kernel.</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> LayerNorm with mean subtraction &amp; standard deviation: ((<i>x</i> &minus; &mu;) / &sigma;)&gamma; + &beta;.</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> RMSNorm. Discards &mu; shift; scales only by root mean square. 15% faster memory kernel.</div>
         </div>
 
         <!-- Feature 3: Feed Forward Activation -->
         <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
           <div class="text-indigo-400 font-bold">3. Non-Linear Activation</div>
-          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> Standard 2-layer MLP with GELU or ReLU: $W_2(\text{GELU}(W_1 x))$.</div>
-          <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> SwiGLU Gated Unit: $((\text{Swish}(x W_{gate})) \otimes (x W_{up})) W_{down}$. Higher expressivity.</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> Standard 2-layer MLP with GELU or ReLU: <i>W</i><sub>2</sub>(GELU(<i>W</i><sub>1</sub><i>x</i>)).</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> SwiGLU Gated Unit: (Swish(<i>xW</i><sub>gate</sub>) &otimes; <i>xW</i><sub>up</sub>)<i>W</i><sub>down</sub>. Higher expressivity.</div>
         </div>
 
         <!-- Feature 4: Attention Projection -->
         <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
           <div class="text-indigo-400 font-bold">4. Attention Strategy</div>
-          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> Multi-Head Attention (MHA). Key and Value caches require $h$ heads per token.</div>
+          <div class="text-slate-400 text-[11px]"><strong class="text-slate-200">GPT-2:</strong> Multi-Head Attention (MHA). Key and Value caches require <i>h</i> heads per token.</div>
           <div class="text-slate-400 text-[11px]"><strong class="text-cyan-400">LLaMA:</strong> Grouped-Query Attention (GQA). Multiple query heads share one KV head, saving 75% KV-cache VRAM.</div>
         </div>
       </div>
     </section>
+    </div> <!-- end featureView-predictor -->
+
+    <!-- ========================================== -->
+    <!-- FEATURE 2: VISUAL GRAMMAR & SURPRISAL CHECKER -->
+    <!-- ========================================== -->
+    <div id="featureView-grammar" class="space-y-6 hidden">
+      
+      <!-- Top Grammar Controls Card -->
+      <section class="bg-slateDark-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+        <div class="absolute -right-16 -top-16 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="space-y-4">
+          <!-- Header title and description -->
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="spell-check" class="w-5 h-5 text-emerald-400"></i>
+                Neural Grammar & Syntactic Surprisal Checker
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">
+                Evaluates cross-entropy surprisal <span class="font-mono text-cyan-300">S(w_t) = -ln P(w_t | w_&lt;t)</span> across words to locate syntactic mismatches, agreement violations, and anomalous tokens.
+              </p>
+            </div>
+
+            <!-- View toggle: Word vs Character Token -->
+            <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-mono">
+              <button id="grammarViewBtn-word" onclick="setGrammarViewMode('word')" class="px-3 py-1.5 rounded-lg font-semibold bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 transition">
+                Word View
+              </button>
+              <button id="grammarViewBtn-char" onclick="setGrammarViewMode('char')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition">
+                Character Token View
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Training Corpus Banner in Grammar View -->
+          <div class="flex items-center justify-between text-xs bg-slate-950/80 px-3.5 py-2 rounded-xl border border-slate-800 flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-slate-400 font-mono text-[11px] flex items-center gap-1.5">
+                <i data-lucide="database" class="w-3.5 h-3.5 text-emerald-400"></i>
+                Active Corpus:
+              </span>
+              <span id="grammarActiveCorpusName" class="text-emerald-300 font-semibold font-mono">Simple English Wikipedia (Hugging Face)</span>
+              <span id="grammarCorpusSizeBadge" class="text-[10px] text-slate-500 font-mono bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">270,023 chars • 46,169 words</span>
+            </div>
+            <span class="text-[11px] text-slate-500 font-mono hidden sm:inline">Use header selector to switch datasets</span>
+          </div>
+
+          <!-- Preset Sentence Pills -->
+          <div class="flex items-center gap-2 flex-wrap text-xs">
+            <span class="text-slate-400 font-mono text-[11px] flex items-center gap-1">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+              Presets:
+            </span>
+            <button onclick="setGrammarPreset('The dog ran down the street')" class="px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-800/80 hover:border-emerald-500 text-emerald-200 transition text-[11px] font-mono flex items-center gap-1">
+              <i data-lucide="check" class="w-3 h-3 text-emerald-400"></i> "The dog ran down the street"
+            </button>
+            <button onclick="setGrammarPreset('The dogs in the park runs wildly')" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 hover:border-emerald-500/60 text-slate-300 hover:text-emerald-300 transition text-[11px] font-mono">
+              "The dogs in the park <span class="text-rose-400 underline">runs</span> wildly"
+            </button>
+            <button onclick="setGrammarPreset('Once upon a midnight dreary, while I pondered')" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-500/60 text-slate-300 hover:text-cyan-300 transition text-[11px] font-mono">
+              "Once upon a midnight dreary" (Poe)
+            </button>
+            <button onclick="setGrammarPreset('She do not understand why the birds flies')" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 hover:border-emerald-500/60 text-slate-300 hover:text-emerald-300 transition text-[11px] font-mono">
+              "She <span class="text-rose-400 underline">do</span> not ... birds <span class="text-rose-400 underline">flies</span>"
+            </button>
+            <button onclick="setGrammarPreset('Attention are all you need')" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 hover:border-emerald-500/60 text-slate-300 hover:text-emerald-300 transition text-[11px] font-mono">
+              "Attention <span class="text-rose-400 underline">are</span> all you need"
+            </button>
+          </div>
+
+          <!-- Sentence Input Box & Action Bar -->
+          <div class="flex gap-2 items-center">
+            <div class="relative flex-1">
+              <input 
+                type="text" 
+                id="grammarInput" 
+                value="The dogs in the park runs wildly" 
+                maxlength="64"
+                class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-emerald-200 focus:outline-none focus:border-emerald-500 font-mono transition"
+                placeholder="Type or edit a sentence to inspect grammar..."
+                oninput="onGrammarInputChange()"
+              />
+              <span id="grammarCharCount" class="absolute right-3 top-3 text-[10px] font-mono text-slate-500">32/64</span>
+            </div>
+
+            <button id="btnAnalyzeGrammar" onclick="analyzeGrammar()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5 whitespace-nowrap">
+              <i data-lucide="search" class="w-3.5 h-3.5"></i> Check Grammar
+            </button>
+          </div>
+
+          <!-- Surprisal Legend -->
+          <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 flex-wrap gap-2">
+            <div class="flex items-center gap-3">
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded bg-slate-800 border border-slate-700"></span> Expected (<i>S</i> &lt; 2.0)</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded bg-amber-950/80 border border-amber-600/60"></span> Unusual Phrasing (2.0 &le; <i>S</i> &lt; 3.0)</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded bg-rose-950/90 border border-rose-500"></span> Syntactic Anomaly (<i>S</i> &ge; 3.0)</span>
+            </div>
+            <span class="text-slate-500">Click any token below to inspect attention dependencies & suggestions</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sentence Surprisal Heatmap & Dynamic Attention Arcs Canvas -->
+      <section class="bg-slateDark-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4 text-emerald-400"></i>
+            Interactive Syntactic Surprisal Canvas
+          </h3>
+          <span id="canvasTokenCount" class="text-xs font-mono text-slate-400">32 tokens analyzed</span>
+        </div>
+
+        <!-- Attention Arc SVG Overlay & Token Row Container -->
+        <div class="relative bg-slate-950 border border-slate-800/90 rounded-2xl p-5 min-h-[140px] flex flex-col justify-end overflow-hidden">
+          <!-- Dynamic SVG Dependency Arc Canvas -->
+          <svg id="grammarArcSvg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 10;">
+            <defs>
+              <linearGradient id="arcGradientValid" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.9"/>
+                <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.9"/>
+              </linearGradient>
+              <linearGradient id="arcGradientAnomaly" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.9"/>
+                <stop offset="100%" stop-color="#fbbf24" stop-opacity="0.9"/>
+              </linearGradient>
+            </defs>
+            <path id="grammarArcPath" d="" fill="none" stroke="url(#arcGradientAnomaly)" stroke-width="2.5" stroke-dasharray="4,4" class="transition-all duration-300" style="display:none;"/>
+            <text id="grammarArcText" x="0" y="0" fill="#fbbf24" font-size="10" font-family="monospace" style="display:none;" text-anchor="middle">Attention: 0.00</text>
+          </svg>
+
+          <!-- Interactive Token Tiles Grid -->
+          <div id="grammarTokensContainer" class="flex flex-wrap gap-2 items-center relative z-20 pt-8 pb-2">
+            <!-- Dynamically populated tokens with surprisal heatmaps -->
+          </div>
+        </div>
+
+        <!-- Fluency & Surprisal Flowline (Area Line Chart) -->
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
+          <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
+            <span class="flex items-center gap-1.5">
+              <i data-lucide="trending-up" class="w-3.5 h-3.5 text-amber-400"></i>
+              Surprisal Flowline & Anomaly Threshold
+            </span>
+            <span class="text-rose-400 flex items-center gap-1">
+              <span class="w-2.5 h-0.5 bg-rose-500 inline-block"></span> Threshold S=2.8
+            </span>
+          </div>
+
+          <div class="relative w-full h-32">
+            <svg id="grammarChartSvg" class="w-full h-full overflow-visible" viewBox="0 0 650 120" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="surprisalGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.4"/>
+                  <stop offset="50%" stop-color="#fbbf24" stop-opacity="0.15"/>
+                  <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.0"/>
+                </linearGradient>
+              </defs>
+              <!-- Threshold guideline at y=52 (corresponds to S=2.8) -->
+              <line x1="20" y1="52" x2="640" y2="52" stroke="#e11d48" stroke-dasharray="3,3" stroke-width="1.2" opacity="0.65"/>
+              <text x="25" y="47" fill="#f43f5e" font-size="9" font-family="monospace">Anomaly Threshold (S ≥ 2.8)</text>
+              <line x1="20" y1="105" x2="640" y2="105" stroke="#334155" stroke-width="1"/>
+              <text x="2" y="108" fill="#64748b" font-size="9" font-family="monospace">0.0</text>
+              <text x="2" y="18" fill="#64748b" font-size="9" font-family="monospace">8.0+</text>
+
+              <!-- Plot Paths -->
+              <path id="grammarAreaPath" d="" fill="url(#surprisalGrad)"/>
+              <path id="grammarLinePath" d="" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <g id="grammarDotsGroup"></g>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- Two-Column Diagnostic & Repair Deck -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Deck: "Expectation vs. Reality" Split Inspector (7 cols) -->
+        <div class="lg:col-span-7 bg-slateDark-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+              <i data-lucide="git-compare" class="w-4 h-4 text-cyan-400"></i>
+              Token Diagnostic: Expectation vs. Reality
+            </h3>
+            <span id="diagTokenStatusBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
+              Select a token
+            </span>
+          </div>
+
+          <!-- Selected Token Overview Banner -->
+          <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+              <div id="diagTokenCharBox" class="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center font-mono text-xl font-bold text-white">
+                --
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h4 id="diagTokenTitle" class="text-sm font-bold text-white">Token #--</h4>
+                  <span id="diagTokenDistractor" class="text-[10px] text-amber-300 bg-amber-950/60 border border-amber-800/40 px-1.5 py-0.5 rounded font-mono hidden">Local Distractor</span>
+                </div>
+                <p id="diagTokenDesc" class="text-xs text-slate-400 mt-0.5">Click any token to inspect its contextual probability.</p>
+              </div>
+            </div>
+
+            <!-- Stats badges -->
+            <div class="flex items-center gap-2 font-mono text-xs">
+              <div class="bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 text-right">
+                <div class="text-[10px] text-slate-500">Surprisal</div>
+                <div id="diagSurprisalVal" class="text-amber-400 font-bold">--</div>
+              </div>
+              <div class="bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 text-right">
+                <div class="text-[10px] text-slate-500">Probability</div>
+                <div id="diagProbVal" class="text-cyan-400 font-bold">--</div>
+              </div>
+              <div class="bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 text-right">
+                <div class="text-[10px] text-slate-500">Rank</div>
+                <div id="diagRankVal" class="text-purple-400 font-bold">#--</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Model Expectations & 1-Click Fixes List -->
+          <div>
+            <div class="text-[11px] font-mono text-slate-400 mb-2 flex items-center justify-between">
+              <span>MODEL CONTINUATION EXPECTATIONS:</span>
+              <span class="text-[10px] text-slate-500">Softmax distribution from context</span>
+            </div>
+            <div id="diagSuggestionsList" class="space-y-2 text-xs font-mono">
+              <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-center text-slate-500">
+                Select any word or character above to inspect candidate continuations.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Deck: Grammar Health & Syntactic Metrics (5 cols) -->
+        <div class="lg:col-span-5 bg-slateDark-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+              <i data-lucide="gauge" class="w-4 h-4 text-emerald-400"></i>
+              Sentence Grammar Health
+            </h3>
+            <span id="healthGradeBadge" class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-400">
+              Score: --
+            </span>
+          </div>
+
+          <!-- Metrics 2x2 grid -->
+          <div class="grid grid-cols-2 gap-3 font-mono text-xs">
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] text-slate-400">Perplexity (PPL)</div>
+              <div id="healthPplVal" class="text-emerald-400 font-bold text-base mt-0.5">--</div>
+              <div class="text-[10px] text-slate-500 mt-1">exp(Mean Surprisal)</div>
+            </div>
+
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] text-slate-400">Mean Surprisal</div>
+              <div id="healthMeanSurprisal" class="text-cyan-400 font-bold text-base mt-0.5">--</div>
+              <div class="text-[10px] text-slate-500 mt-1">Nats per token</div>
+            </div>
+
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] text-slate-400">Syntactic Anomalies</div>
+              <div id="healthAnomaliesCount" class="text-rose-400 font-bold text-base mt-0.5">--</div>
+              <div class="text-[10px] text-slate-500 mt-1">Tokens S ≥ 2.8</div>
+            </div>
+
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] text-slate-400">Syntactic Heads</div>
+              <div class="text-indigo-400 font-bold text-base mt-0.5">4 Heads</div>
+              <div class="text-[10px] text-slate-500 mt-1">Layer 4 averaged</div>
+            </div>
+          </div>
+
+          <!-- Educational Breakdown Card -->
+          <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/80 space-y-2 text-xs leading-relaxed text-slate-300">
+            <h4 class="font-bold text-white flex items-center gap-1.5 text-xs">
+              <i data-lucide="info" class="w-3.5 h-3.5 text-cyan-400"></i>
+              How Transformers Detect Grammar
+            </h4>
+            <p class="text-[11px] text-slate-400">
+              Unlike classical rule engines with regex dictionaries, decoder transformers learn grammar organically:
+            </p>
+            <ul class="text-[11px] text-slate-400 list-disc list-inside space-y-1">
+              <li><strong class="text-slate-200">Induction & Syntax Heads:</strong> Track long-range dependencies across prepositional phrases (e.g., connecting <span class="text-cyan-300">"dogs"</span> to <span class="text-cyan-300">"run"</span> over <span class="text-slate-500">"in the park"</span>).</li>
+              <li><strong class="text-slate-200">Surprisal Metric:</strong> An ungrammatical token demands high cross-entropy loss, creating an immediate spike on the flowline.</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
 
   </main>
 
@@ -604,6 +1149,8 @@
     let currentArch = 'gpt2'; // 'gpt2' or 'llama'
     let selectedNodeId = 'embedding';
     let currentTab = 'details';
+    let currentTemperature = 0.70;
+    let latestTrainingHistory = [];
 
     // Model Hyperparameters
     let V = 64;       // Vocab Size
@@ -628,8 +1175,8 @@
         badge: "Input Processing",
         titleGpt: "Token Embedding + Absolute Positional Embedding",
         titleLlama: "Token Embedding (RoPE applied in Attention)",
-        descGpt: "Converts discrete token indices into continuous $d_{model}$-dimensional vectors via a weight matrix $W_E \\in \\mathbb{R}^{V \\times d}$, and adds a learned position vector $W_{pos} \\in \\mathbb{R}^{T \\times d}$.",
-        descLlama: "Token index lookup via $W_E \\in \\mathbb{R}^{V \\times d}$. Positional information is injected later via complex rotary matrices inside the attention heads rather than additive vector additions.",
+        descGpt: "Converts discrete token indices into continuous <i>d</i><sub>model</sub>-dimensional vectors via a weight matrix <i>W</i><sub><i>E</i></sub> &isin; ℝ<sup><i>V</i> &times; <i>d</i></sup>, and adds a learned position vector <i>W</i><sub>pos</sub> &isin; ℝ<sup><i>T</i> &times; <i>d</i></sup>.",
+        descLlama: "Token index lookup via <i>W</i><sub><i>E</i></sub> &isin; ℝ<sup><i>V</i> &times; <i>d</i></sup>. Positional information is injected later via complex rotary matrices inside the attention heads rather than additive vector additions.",
         mathGpt: "x_t = \\text{Embedding}(tok_t) + \\text{PosEmbed}(t)",
         mathLlama: "x_t = \\text{Embedding}(tok_t) \\quad [\\text{RoPE deferred to } Q, K]",
         shapes: () => [
@@ -640,7 +1187,7 @@
         ],
         calcParams: () => currentArch === 'gpt2' ? (V * d_model + T * d_model) : (V * d_model),
         diffTitle: "Positional Strategy",
-        diffText: "GPT-2 uses absolute learned embeddings which fail to extrapolate beyond context length T. LLaMA uses Rotary Position Embedding (RoPE) which rotates Q and K, capturing relative token distance naturally."
+        diffText: "GPT-2 uses absolute learned embeddings which fail to extrapolate beyond context length <i>T</i>. LLaMA uses Rotary Position Embedding (RoPE) which rotates <i>Q</i> and <i>K</i>, capturing relative token distance naturally."
       },
       norm1: {
         badge: "Pre-Attention Normalization",
@@ -705,8 +1252,8 @@
         badge: "Token-Level Transformation",
         titleGpt: "Feed-Forward Network (GELU/ReLU MLP)",
         titleLlama: "SwiGLU Gated Feed-Forward Network",
-        descGpt: "Expands the embedding dimension by a factor of 4, applies non-linear activation (ReLU or GELU), then projects back down: d -> 4d -> d.",
-        descLlama: "Employs three matrix projections ($W_{gate}, W_{up}, W_{down}$) and the Swish/SiLU activation function. Provides dynamic feature gating.",
+        descGpt: "Expands the embedding dimension by a factor of 4, applies non-linear activation (ReLU or GELU), then projects back down: <i>d</i> &rarr; 4<i>d</i> &rarr; <i>d</i>.",
+        descLlama: "Employs three matrix projections (<i>W</i><sub>gate</sub>, <i>W</i><sub>up</sub>, <i>W</i><sub>down</sub>) and the Swish/SiLU activation function. Provides dynamic feature gating.",
         mathGpt: "\\text{FFN}(x) = \\max(0, x W_1 + b_1) W_2 + b_2",
         mathLlama: "\\text{SwiGLU}(x) = \\left(\\text{SiLU}(x W_{\\text{gate}}) \\otimes x W_{\\text{up}}\\right) W_{\\text{down}}",
         shapes: () => {
@@ -748,7 +1295,7 @@
         badge: "Vocabulary Projection",
         titleGpt: "Language Model Head (Linear)",
         titleLlama: "Unembedded Head (Weight Tying optional)",
-        descGpt: "Linear projection from dimension $d_{model}$ to vocabulary size $V$. Each row outputs the unnormalized log-probability (logit) for each character or subword.",
+        descGpt: "Linear projection from dimension <i>d</i><sub>model</sub> to vocabulary size <i>V</i>. Each row outputs the unnormalized log-probability (logit) for each character or subword.",
         descLlama: "Projects the latent vector into vocabulary logits. Often shares weights with the input embedding table (weight tying).",
         mathGpt: "\\text{Logits} = x_{\\text{final}} W_{\\text{head}} \\in \\mathbb{R}^{B \\times T \\times V}",
         mathLlama: "\\text{Logits} = x_{\\text{final}} W_{\\text{head}} \\quad [W_{\\text{head}} = W_E^\\top]",
@@ -758,13 +1305,13 @@
         ],
         calcParams: () => d_model * V,
         diffTitle: "Weight Tying",
-        diffText: "Many LLMs reuse the input token embedding matrix $W_E$ as the output head transposed ($W_E^\\top$), cutting parameter counts significantly."
+        diffText: "Many LLMs reuse the input token embedding matrix <i>W</i><sub><i>E</i></sub> as the output head transposed (<i>W</i><sub><i>E</i></sub><sup>T</sup>), cutting parameter counts significantly."
       },
       sampling: {
         badge: "Autoregressive Sampling",
         titleGpt: "Softmax & Multinomial Sampling",
         titleLlama: "Temperature & Top-p / Top-k Sampling",
-        descGpt: "Selects the final sequence position $[:, -1, :]$, applies Softmax to generate probabilities over $V$, and samples the next discrete token.",
+        descGpt: "Selects the final sequence position [:, &minus;1, :], applies Softmax to generate probabilities over <i>V</i>, and samples the next discrete token.",
         descLlama: "Evaluates temperature scaling, top-k truncation, and top-p (nucleus) thresholding before drawing a token.",
         mathGpt: "P(\\text{tok}_{t+1} = i) = \\frac{\\exp(z_i / \\tau)}{\\sum_j \\exp(z_j / \\tau)}",
         mathLlama: "P = \\text{Softmax}\\left(\\frac{\\text{logits}}{\\tau}\\right) \\quad \\text{subject to } \\sum_{p \\in \\text{top\\_p}} p \\ge 0.9",
@@ -775,7 +1322,7 @@
         ],
         calcParams: () => 0,
         diffTitle: "Greedy vs Stochastic",
-        diffText: "Temperature controls randomness: T->0 corresponds to deterministic argmax (greedy decoding), whereas higher temperatures encourage variety and creativity."
+        diffText: "Temperature controls randomness: <i>T</i> &rarr; 0 corresponds to deterministic argmax (greedy decoding), whereas higher temperatures encourage variety and creativity."
       }
     };
 
@@ -798,7 +1345,7 @@
         document.getElementById('norm1Title').innerText = "Pre-LayerNorm 1";
         document.getElementById('norm2Title').innerText = "Pre-LayerNorm 2";
         document.getElementById('mlpTitle').innerText = "Position-wise Feed Forward (MLP)";
-        document.getElementById('mlpDesc').innerText = "2-layer expansion: Linear(d -> 4d) -> ReLU/GELU -> Linear(4d -> d)";
+        document.getElementById('mlpDesc').innerHTML = "2-layer expansion: Linear(<i>d</i> &rarr; 4<i>d</i>) &rarr; ReLU/GELU &rarr; Linear(4<i>d</i> &rarr; <i>d</i>)";
         document.getElementById('finalNormTitle').innerText = "Final LayerNorm";
         document.getElementById('posEmbedPill').style.display = "inline-block";
       } else {
@@ -808,7 +1355,7 @@
         document.getElementById('norm1Title').innerText = "Pre-RMSNorm 1";
         document.getElementById('norm2Title').innerText = "Pre-RMSNorm 2";
         document.getElementById('mlpTitle').innerText = "SwiGLU Gated Feed-Forward";
-        document.getElementById('mlpDesc').innerText = "3 projections: Swish(xW_gate) * xW_up -> W_down";
+        document.getElementById('mlpDesc').innerHTML = "3 projections: Swish(<i>xW</i><sub>gate</sub>) &otimes; <i>xW</i><sub>up</sub> &rarr; <i>W</i><sub>down</sub>";
         document.getElementById('finalNormTitle').innerText = "Final RMSNorm";
         document.getElementById('posEmbedPill').style.display = "none";
       }
@@ -830,7 +1377,7 @@
       // Update Detail Tab
       document.getElementById('detailBadge').innerText = data.badge;
       document.getElementById('detailTitle').innerText = currentArch === 'gpt2' ? data.titleGpt : data.titleLlama;
-      document.getElementById('detailDesc').innerText = currentArch === 'gpt2' ? data.descGpt : data.descLlama;
+      document.getElementById('detailDesc').innerHTML = currentArch === 'gpt2' ? data.descGpt : data.descLlama;
       
       const paramsCount = data.calcParams();
       document.getElementById('detailParamsCount').innerText = `Params: ${paramsCount.toLocaleString()}`;
@@ -855,34 +1402,180 @@
       });
 
       // Update Difference Box
-      document.getElementById('archDiffTitle').innerText = data.diffTitle;
-      document.getElementById('archDiffText').innerText = data.diffText;
+      document.getElementById('archDiffTitle').innerHTML = data.diffTitle;
+      document.getElementById('archDiffText').innerHTML = data.diffText;
     }
+
+    // State Variables
+    let selectedAttnLayer = 0;
+    let selectedAttnHead = 0;
+    let latestAllLayersAttn = null;
+    let latestLayerActivations = [];
+    let selectedActivationLayerIdx = 0;
+    let layerAnimInterval = null;
 
     // Switch right panel tabs
     function switchInspectorTab(tab) {
       currentTab = tab;
-      const tabs = ['details', 'attention', 'params'];
+      const tabs = ['details', 'activations', 'attention', 'loss', 'params'];
       tabs.forEach(t => {
         const tabEl = document.getElementById(`inspectorTab-${t}`);
         const btnEl = document.getElementById(`tabBtn-${t}`);
         if (t === tab) {
-          tabEl.classList.remove('hidden');
-          btnEl.className = "px-3 py-1 rounded-lg text-xs font-semibold bg-cyan-600/30 text-cyan-300 border border-cyan-500/40";
+          if (tabEl) tabEl.classList.remove('hidden');
+          if (btnEl) btnEl.className = "px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-600/30 text-cyan-300 border border-cyan-500/40";
         } else {
-          tabEl.classList.add('hidden');
-          btnEl.className = "px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200";
+          if (tabEl) tabEl.classList.add('hidden');
+          if (btnEl) btnEl.className = "px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200";
         }
       });
 
       if (tab === 'attention') {
         renderAttentionMatrix();
+      } else if (tab === 'activations') {
+        renderLayerActivations(latestLayerActivations);
+      } else if (tab === 'loss') {
+        renderLossChart(latestTrainingHistory);
       }
     }
 
+    // Render Loss Convergence Chart & Header Sparkline
+    function renderLossChart(history) {
+      if (!history || history.length === 0) return;
+      latestTrainingHistory = history;
+
+      const sorted = [...history].sort((a, b) => a.step - b.step);
+      const n = sorted.length;
+      const latest = sorted[n - 1];
+
+      // Update metric displays
+      const currLossEl = document.getElementById('chartCurrentLoss');
+      if (currLossEl && latest.loss !== undefined) {
+        currLossEl.innerText = Number(latest.loss).toFixed(3);
+      }
+      const totalStepsEl = document.getElementById('chartTotalSteps');
+      if (totalStepsEl && latest.step !== undefined) {
+        totalStepsEl.innerText = Number(latest.step).toLocaleString();
+      }
+      const rangeEl = document.getElementById('chartStepRange');
+      if (rangeEl) {
+        rangeEl.innerText = `Step ${sorted[0].step} → Step ${latest.step}`;
+      }
+
+      // Main Loss Chart (viewBox 0 0 450 170)
+      const minX = 30, maxX = 440;
+      const minY = 15, maxY = 150;
+      const minStep = sorted[0].step;
+      const maxStep = Math.max(latest.step, minStep + 1);
+      const maxLoss = Math.max(4.2, ...sorted.map(pt => pt.loss || 0));
+
+      const points = sorted.map(pt => {
+        const x = minX + ((pt.step - minStep) / (maxStep - minStep)) * (maxX - minX);
+        const l = Math.max(0, Math.min(maxLoss, pt.loss || 0));
+        const y = maxY - (l / maxLoss) * (maxY - minY);
+        return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) };
+      });
+
+      if (points.length > 0) {
+        const lineD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        const areaD = `M ${points[0].x} ${maxY} ` + points.map(p => `L ${p.x} ${p.y}`).join(' ') + ` L ${points[points.length - 1].x} ${maxY} Z`;
+
+        const linePath = document.getElementById('lossLinePath');
+        if (linePath) linePath.setAttribute('d', lineD);
+
+        const areaPath = document.getElementById('lossAreaPath');
+        if (areaPath) areaPath.setAttribute('d', areaD);
+
+        const dot = document.getElementById('lossCurrentDot');
+        if (dot) {
+          const lastPt = points[points.length - 1];
+          dot.setAttribute('cx', lastPt.x);
+          dot.setAttribute('cy', lastPt.y);
+          dot.style.display = 'inline';
+        }
+      }
+
+      // Mini Header Sparkline (viewBox 0 0 50 16)
+      const sparkPath = document.getElementById('headerSparklinePath');
+      if (sparkPath && points.length > 0) {
+        const sparkPoints = sorted.map(pt => {
+          const x = 2 + ((pt.step - minStep) / (maxStep - minStep)) * 46;
+          const l = Math.max(0, Math.min(maxLoss, pt.loss || 0));
+          const y = 14 - (l / maxLoss) * 12;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        });
+        sparkPath.setAttribute('d', 'M ' + sparkPoints.join(' L '));
+      }
+    }
+
+    function setAttnLayer(lIdx) {
+      selectedAttnLayer = lIdx;
+      for (let i = 0; i < 4; i++) {
+        const p = document.getElementById(`pillLayer-${i}`);
+        if (p) {
+          p.className = (i === lIdx) 
+            ? "px-2 py-0.5 rounded bg-cyan-600 text-white font-bold text-[10px]"
+            : "px-2 py-0.5 rounded bg-slate-900 text-slate-400 text-[10px] hover:text-white";
+        }
+      }
+      renderAttentionMatrix();
+    }
+
+    function setAttnHead(hIdx) {
+      selectedAttnHead = hIdx;
+      for (let i = 0; i < 4; i++) {
+        const p = document.getElementById(`pillHead-${i}`);
+        if (p) {
+          p.className = (i === hIdx)
+            ? "px-2 py-0.5 rounded bg-indigo-600 text-white font-bold text-[10px]"
+            : "px-2 py-0.5 rounded bg-slate-900 text-slate-400 text-[10px] hover:text-white";
+        }
+      }
+      renderAttentionMatrix();
+    }
+
+    function animateAttentionLayers() {
+      const btn = document.getElementById('btnAnimateLayers');
+      if (layerAnimInterval) {
+        clearInterval(layerAnimInterval);
+        layerAnimInterval = null;
+        if (btn) btn.innerHTML = `<i data-lucide="play" class="w-3 h-3"></i> Animate Layers`;
+        lucide.createIcons();
+        return;
+      }
+
+      if (btn) btn.innerHTML = `<span class="animate-spin inline-block mr-1">⟳</span> Layer Loop`;
+      let stepL = 0;
+      setAttnLayer(stepL);
+
+      layerAnimInterval = setInterval(() => {
+        stepL = (stepL + 1) % 4;
+        setAttnLayer(stepL);
+        if (stepL === 3) {
+          setTimeout(() => {
+            if (layerAnimInterval) {
+              clearInterval(layerAnimInterval);
+              layerAnimInterval = null;
+              if (btn) btn.innerHTML = `<i data-lucide="play" class="w-3 h-3"></i> Animate Layers`;
+              lucide.createIcons();
+            }
+          }, 800);
+        }
+      }, 500);
+    }
+
+    let latestAttentionMatrix = null;
+    let latestTopTokens = [];
+    let latestTokenIds = [];
+
     function renderAttentionMatrix() {
-      const tokens = getPromptTokens().slice(0, 10); // Show up to 10 for clean grid
+      const fullTokens = getPromptTokens();
+      // Show the most recent up to 12 tokens for high-fidelity visualization
+      const maxDisplay = 12;
+      const tokens = fullTokens.slice(-maxDisplay);
+      const offset = Math.max(0, fullTokens.length - maxDisplay);
       const container = document.getElementById('attentionMatrixContainer');
+      if (!container) return;
       container.innerHTML = '';
 
       const table = document.createElement('table');
@@ -895,45 +1588,64 @@
       tokens.forEach((tok, j) => {
         const th = document.createElement('th');
         th.className = "p-1 text-center text-slate-400 border border-slate-800 bg-slate-900/50";
-        th.innerText = tok === ' ' ? '␣' : tok;
+        th.innerText = tok === ' ' ? '␣' : (tok === '\n' ? '↵' : tok);
         headerRow.appendChild(th);
       });
       thead.appendChild(headerRow);
       table.appendChild(thead);
 
+      // Resolve matrix source (selected layer & head from all_layers_attn or fallback)
+      let activeHeadMatrix = null;
+      if (latestAllLayersAttn && latestAllLayersAttn[selectedAttnLayer] && latestAllLayersAttn[selectedAttnLayer][selectedAttnHead]) {
+        activeHeadMatrix = latestAllLayersAttn[selectedAttnLayer][selectedAttnHead];
+      } else {
+        activeHeadMatrix = latestAttentionMatrix;
+      }
+
       // Body rows
       const tbody = document.createElement('tbody');
-      tokens.forEach((rowTok, i) => {
+      tokens.forEach((rowTok, localI) => {
+        const actualI = offset + localI;
         const tr = document.createElement('tr');
         
         // Row header token
         const rowHeader = document.createElement('td');
         rowHeader.className = "p-1 text-center text-slate-400 border border-slate-800 bg-slate-900/50 font-bold";
-        rowHeader.innerText = rowTok === ' ' ? '␣' : rowTok;
+        rowHeader.innerText = rowTok === ' ' ? '␣' : (rowTok === '\n' ? '↵' : rowTok);
         tr.appendChild(rowHeader);
 
         // Cells
-        tokens.forEach((colTok, j) => {
+        tokens.forEach((colTok, localJ) => {
+          const actualJ = offset + localJ;
           const td = document.createElement('td');
           td.className = "p-1 text-center border border-slate-900 transition relative cursor-pointer group";
 
-          if (j > i) {
+          if (actualJ > actualI) {
             // Masked cell (future position)
             td.className += " bg-slate-950 text-slate-700 select-none";
             td.innerText = "-∞";
-            td.title = `Masked: Position ${i} cannot look ahead to position ${j}`;
+            td.title = `Causal Mask: Pos ${actualI} cannot attend to future pos ${actualJ}`;
           } else {
-            // Lower-triangular active attention
-            // Generate synthetic normalized attention weights favoring recent tokens
-            const dist = i - j;
-            let rawWeight = Math.exp(-dist * 0.45);
-            if (j === 0) rawWeight += 0.35; // Attention sink at token 0
+            // Query real PyTorch attention weights if available
+            let alpha = 0.2;
+            let isPyTorch = false;
+            if (activeHeadMatrix && activeHeadMatrix[actualI] && activeHeadMatrix[actualI][actualJ] !== undefined) {
+              alpha = activeHeadMatrix[actualI][actualJ];
+              isPyTorch = true;
+            } else {
+              const dist = actualI - actualJ;
+              let rawWeight = Math.exp(-dist * 0.45);
+              if (actualJ === 0) rawWeight += 0.35;
+              alpha = Math.min(Math.max(rawWeight * 0.8, 0.05), 0.95);
+            }
 
-            const alpha = Math.min(Math.max(rawWeight * 0.8, 0.15), 0.95);
-            td.style.backgroundColor = `rgba(14, 165, 233, ${alpha})`;
+            const opacity = Math.min(Math.max(alpha, 0.12), 0.95);
+            td.style.backgroundColor = `rgba(14, 165, 233, ${opacity})`;
             td.className += " text-white font-semibold hover:ring-2 hover:ring-white";
             td.innerText = alpha.toFixed(2);
-            td.title = `Score: Q[${i}] · K[${j}] -> Softmax: ${(alpha * 100).toFixed(1)}%`;
+            td.title = isPyTorch
+              ? `PyTorch L${selectedAttnLayer+1}H${selectedAttnHead+1} Weight: Pos ${actualI} attends to ${actualJ} -> ${(alpha * 100).toFixed(1)}%`
+              : `Synthetic Attention: Pos ${actualI} to ${actualJ} -> ${(alpha * 100).toFixed(1)}%`;
           }
           tr.appendChild(td);
         });
@@ -942,6 +1654,141 @@
 
       table.appendChild(tbody);
       container.appendChild(table);
+    }
+
+    // Render Layer Activations progression cards & neuron heatmap
+    function renderLayerActivations(layerList) {
+      const container = document.getElementById('layerActivationsList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (!layerList || layerList.length === 0) {
+        container.innerHTML = `<div class="p-4 text-center text-slate-500 text-xs">Waiting for model inference to stream layer activation vectors...</div>`;
+        return;
+      }
+
+      layerList.forEach((layer, idx) => {
+        const isSelected = (idx === selectedActivationLayerIdx);
+        const card = document.createElement('div');
+        card.className = `p-2.5 rounded-xl border transition cursor-pointer flex flex-col gap-1.5 ${
+          isSelected ? 'bg-cyan-950/40 border-cyan-500/80 shadow-md shadow-cyan-950' : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+        }`;
+        card.id = `layerActCard-${idx}`;
+        card.onclick = () => selectActivationLayer(idx);
+
+        // Compute mini sparkline bar distribution of values
+        let miniBarsHtml = '';
+        if (layer.values && layer.values.length > 0) {
+          const maxVal = Math.max(...layer.values.map(v => Math.abs(v)), 1.0);
+          layer.values.slice(0, 16).forEach(v => {
+            const hPercent = Math.min(100, Math.round((Math.abs(v) / maxVal) * 100));
+            const colorClass = v >= 0 ? 'bg-cyan-400' : 'bg-purple-500';
+            miniBarsHtml += `<div class="w-1 rounded-sm ${colorClass}" style="height: ${Math.max(3, hPercent * 0.16)}px;" title="dim: ${v}"></div>`;
+          });
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold ${isSelected ? 'text-cyan-300' : 'text-slate-200'}">${layer.name}</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] text-indigo-300 bg-indigo-950/60 border border-indigo-800/40 px-1.5 py-0.5 rounded">Logit Lens: <strong class="text-white">${layer.top_prediction || '?'}</strong></span>
+              <span class="text-[10px] text-amber-300 bg-amber-950/40 border border-amber-800/40 px-1.5 py-0.5 rounded">‖x‖₂: ${layer.norm}</span>
+            </div>
+          </div>
+          <div class="flex items-end gap-0.5 h-4 bg-slate-900/60 rounded px-1.5 py-0.5 border border-slate-800/60">
+            ${miniBarsHtml}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      renderNeuronHeatmap(layerList[selectedActivationLayerIdx] || layerList[0]);
+    }
+
+    function selectActivationLayer(idx) {
+      selectedActivationLayerIdx = idx;
+      if (latestLayerActivations && latestLayerActivations.length > 0) {
+        renderLayerActivations(latestLayerActivations);
+      }
+    }
+
+    function renderNeuronHeatmap(layerObj) {
+      if (!layerObj) return;
+      const titleEl = document.getElementById('activeLayerTitle');
+      const statsEl = document.getElementById('activeLayerStats');
+      const container = document.getElementById('neuronHeatmap');
+
+      if (titleEl) titleEl.innerText = `${layerObj.name} Activation Weights`;
+      if (statsEl) statsEl.innerText = `L2 Norm: ${layerObj.norm} | Mean: ${layerObj.mean} | Std: ${layerObj.std}`;
+      if (!container) return;
+      container.innerHTML = '';
+
+      const values = layerObj.values || [];
+      const maxVal = Math.max(...values.map(v => Math.abs(v)), 1.5);
+
+      values.slice(0, 24).forEach((val, dim) => {
+        const norm = Math.min(1.0, Math.abs(val) / maxVal);
+        const cell = document.createElement('div');
+        cell.className = "h-7 rounded flex flex-col items-center justify-center font-mono text-[9px] font-bold text-white transition hover:scale-105 cursor-pointer relative group";
+        
+        if (val >= 0) {
+          cell.style.backgroundColor = `rgba(14, 165, 233, ${Math.max(0.18, norm)})`;
+        } else {
+          cell.style.backgroundColor = `rgba(147, 51, 234, ${Math.max(0.2, norm)})`;
+        }
+
+        cell.innerHTML = `
+          <span>${val >= 0 ? '+' : ''}${val.toFixed(1)}</span>
+          <span class="text-[7px] text-slate-400">d${dim}</span>
+        `;
+        cell.title = `Dimension ${dim}: activation weight = ${val}`;
+        container.appendChild(cell);
+      });
+    }
+
+    function animateLayerActivations() {
+      if (!latestLayerActivations || latestLayerActivations.length === 0) return;
+      let curr = 0;
+      selectActivationLayer(curr);
+
+      const intv = setInterval(() => {
+        curr++;
+        if (curr >= latestLayerActivations.length) {
+          clearInterval(intv);
+          return;
+        }
+        selectActivationLayer(curr);
+      }, 350);
+    }
+
+    // Animated forward pass through pipeline nodes
+    function animateForwardPass() {
+      const nodes = [
+        'node-embedding',
+        'node-norm1',
+        'node-mha',
+        'node-norm2',
+        'node-mlp',
+        'node-finalnorm',
+        'node-lmhead',
+        'node-sampling'
+      ];
+
+      nodes.forEach((nId, idx) => {
+        setTimeout(() => {
+          document.querySelectorAll('[id^="node-"]').forEach(el => el.classList.remove('node-active'));
+          const el = document.getElementById(nId);
+          if (el) {
+            el.classList.add('node-active');
+          }
+          if (idx === nodes.length - 1) {
+            setTimeout(() => {
+              document.querySelectorAll('[id^="node-"]').forEach(el => el.classList.remove('node-active'));
+              selectNode(selectedNodeId);
+            }, 400);
+          }
+        }, idx * 90);
+      });
     }
 
     function updateHyperparams() {
@@ -996,7 +1843,10 @@
       document.getElementById('quickTotalParams').innerText = grandTotal.toLocaleString();
     }
 
-    // Live Prompt change handler
+    let promptDebounceTimer = null;
+    let isFetchingInference = false;
+
+    // Live Prompt change handler with debounced API call
     function handlePromptChange() {
       const input = document.getElementById('promptInput');
       const val = input.value;
@@ -1004,86 +1854,804 @@
       document.getElementById('tokenLengthBadge').innerText = `${chars.length} tokens`;
       document.getElementById('liveSeqLen').innerText = chars.length;
 
+      // Local preview of chips until API returns true token IDs
+      renderTokenChips(chars, latestTokenIds);
+
+      if (currentTab === 'attention') {
+        renderAttentionMatrix();
+      } else if (currentTab === 'activations') {
+        renderLayerActivations(latestLayerActivations);
+      }
+      selectNode(selectedNodeId);
+
+      clearTimeout(promptDebounceTimer);
+      promptDebounceTimer = setTimeout(() => {
+        fetchInference(val);
+      }, 120);
+    }
+
+    function renderTokenChips(chars, tokenIds) {
       const chipsContainer = document.getElementById('tokenChips');
+      if (!chipsContainer) return;
       chipsContainer.innerHTML = '';
 
       chars.forEach((c, idx) => {
         const chip = document.createElement('div');
         chip.className = "flex items-center bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-slate-300 gap-1.5 hover:border-cyan-500 transition";
+        const idVal = (tokenIds && tokenIds[idx] !== undefined) ? tokenIds[idx] : (c.charCodeAt(0) % V);
         chip.innerHTML = `
-          <span class="text-cyan-400 font-bold">${c === ' ' ? '␣' : c}</span>
-          <span class="text-[10px] text-slate-500 font-mono">id:${c.charCodeAt(0) % V}</span>
+          <span class="text-cyan-400 font-bold">${c === ' ' ? '␣' : (c === '\n' ? '↵' : c)}</span>
+          <span class="text-[10px] text-slate-500 font-mono">id:${idVal}</span>
         `;
         chipsContainer.appendChild(chip);
       });
-
-      if (currentTab === 'attention') {
-        renderAttentionMatrix();
-      }
-      selectNode(selectedNodeId);
     }
 
-    // Step simulated next token
-    function stepAutoregressive() {
-      const input = document.getElementById('promptInput');
-      const choices = ['?', '!', '.', ' death', ' sleep', ' mortal', ' pause'];
-      const chosen = choices[Math.floor(Math.random() * choices.length)];
-      if (input.value.length < 30) {
-        input.value += chosen;
-        handlePromptChange();
+    function onTemperatureChange(val) {
+      currentTemperature = parseFloat(val);
+      const disp = document.getElementById('tempValueDisplay');
+      if (disp) disp.innerText = currentTemperature.toFixed(2);
+      const promptInput = document.getElementById('promptInput');
+      if (promptInput) {
+        fetchInference(promptInput.value);
       }
-      renderNextTokens();
+    }
+
+    async function fetchInference(prompt) {
+      const statusEl = document.getElementById('inferenceStatus');
+      if (statusEl) statusEl.classList.remove('hidden');
+      isFetchingInference = true;
+
+      try {
+        const resp = await fetch('/api/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: prompt, temperature: currentTemperature, top_k: 6 })
+        });
+        const data = await resp.json();
+
+        if (data.top_tokens) {
+          latestTopTokens = data.top_tokens;
+          renderNextTokens(data.top_tokens);
+        }
+        if (data.token_ids) {
+          latestTokenIds = data.token_ids;
+          renderTokenChips(Array.from(prompt), latestTokenIds);
+        }
+        if (data.attention_matrix) {
+          latestAttentionMatrix = data.attention_matrix;
+        }
+        if (data.all_layers_attn) {
+          latestAllLayersAttn = data.all_layers_attn;
+        }
+        if (data.layer_activations) {
+          latestLayerActivations = data.layer_activations;
+          if (currentTab === 'activations') {
+            renderLayerActivations(latestLayerActivations);
+          }
+        }
+        if (currentTab === 'attention') {
+          renderAttentionMatrix();
+        }
+        if (data.loss !== undefined && data.loss !== null) {
+          const lossEl = document.getElementById('currentLossText');
+          if (lossEl) lossEl.innerText = Number(data.loss).toFixed(3);
+        }
+        if (data.training_history && data.training_history.length > 0) {
+          latestTrainingHistory = data.training_history;
+          renderLossChart(latestTrainingHistory);
+        }
+      } catch (err) {
+        console.warn("Backend inference unreachable, fallback to simulation:", err);
+      } finally {
+        isFetchingInference = false;
+        if (statusEl) statusEl.classList.add('hidden');
+      }
+    }
+
+    // Autoregressive token step calling PyTorch backend
+    async function stepAutoregressive() {
+      const input = document.getElementById('promptInput');
+      const val = input.value || " ";
+      const btn = document.getElementById('btnPredict');
+      if (btn) btn.disabled = true;
+
+      // Trigger visual forward pass animation
+      animateForwardPass();
+
+      try {
+        const resp = await fetch('/api/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: val, temperature: currentTemperature, top_k: 6 })
+        });
+        const data = await resp.json();
+
+        if (data.next_token) {
+          if (input.value.length < 64) {
+            input.value += data.next_token;
+            handlePromptChange();
+          }
+        }
+      } catch (err) {
+        console.error("Predict error:", err);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     function randomizePrompt() {
       const prompts = [
+        "Once upon a midnight dreary ",
         "To be, or not to be",
-        "The quick brown fox",
+        "The quick brown fox jumps",
         "Attention is all you need",
-        "Once upon a midnight dreary",
-        "In the beginning was the token"
+        "In the beginning was the Word"
       ];
       const randomP = prompts[Math.floor(Math.random() * prompts.length)];
       document.getElementById('promptInput').value = randomP;
       handlePromptChange();
     }
 
-    function renderNextTokens() {
+    function renderNextTokens(tokensList) {
       const container = document.getElementById('topTokensContainer');
+      if (!container) return;
       container.innerHTML = '';
 
-      // Shuffle slightly for interactive feedback
-      const dynamicTokens = sampleTokens.map(t => ({
-        ...t,
-        prob: Math.max(0.02, t.prob + (Math.random() * 0.08 - 0.04))
-      }));
-      const totalProb = dynamicTokens.reduce((acc, cur) => acc + cur.prob, 0);
+      const tokens = tokensList || sampleTokens;
 
-      dynamicTokens.forEach(item => {
-        const normProb = (item.prob / totalProb);
+      tokens.forEach(item => {
+        const normProb = item.prob;
         const percent = (normProb * 100).toFixed(1);
         const bar = document.createElement('div');
-        bar.className = "space-y-1";
+        bar.className = "space-y-0.5";
+        const displayTok = item.display || (item.token === ' ' ? '␣ (space)' : item.token);
+        const logitInfo = item.logit !== undefined ? `<span class="text-slate-500 text-[10px] ml-1">logit ${item.logit}</span>` : '';
         bar.innerHTML = `
           <div class="flex justify-between text-xs font-mono">
-            <span class="text-cyan-300 font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">${item.token}</span>
-            <span class="text-slate-400">${percent}%</span>
+            <span class="text-cyan-300 font-bold bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">${displayTok}</span>
+            <span class="text-slate-400 font-semibold">${percent}% ${logitInfo}</span>
           </div>
-          <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-            <div class="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+          <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-800">
+            <div class="bg-gradient-to-r from-cyan-500 via-sky-400 to-indigo-500 h-full rounded-full transition-all duration-300" style="width: ${percent}%"></div>
           </div>
         `;
         container.appendChild(bar);
       });
     }
 
+    async function triggerTrain(steps = 100) {
+      const btn = document.getElementById('btnTrain');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="animate-spin inline-block mr-1">⟳</span> Training...`;
+      }
+      try {
+        await fetch('/api/train', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ steps: steps, learning_rate: 0.001 })
+        });
+        pollTrainingStatus();
+      } catch (e) {
+        console.error("Training error:", e);
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-400"></i> Train +100`;
+          lucide.createIcons();
+        }
+      }
+    }
+
+    async function pollTrainingStatus() {
+      const btn = document.getElementById('btnTrain');
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch('/api/train/status');
+          const data = await res.json();
+          if (data.loss !== undefined && data.loss !== null) {
+            document.getElementById('currentLossText').innerText = Number(data.loss).toFixed(3);
+          }
+          if (data.step !== undefined) {
+            const stepEl = document.getElementById('chartTotalSteps');
+            if (stepEl) stepEl.innerText = Number(data.step).toLocaleString();
+          }
+          if (data.training_history && data.training_history.length > 0) {
+            latestTrainingHistory = data.training_history;
+            renderLossChart(latestTrainingHistory);
+          }
+          if (!data.is_training) {
+            clearInterval(interval);
+            if (btn) {
+              btn.disabled = false;
+              btn.innerHTML = `<i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-400"></i> Train +100`;
+              lucide.createIcons();
+            }
+            // Trigger inference update with fresh weights
+            fetchInference(document.getElementById('promptInput').value);
+          }
+        } catch (e) {
+          clearInterval(interval);
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-400"></i> Train +100`;
+            lucide.createIcons();
+          }
+        }
+      }, 500);
+    }
+
+    async function initBackendStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data.device) {
+          document.getElementById('backendDeviceText').innerText = `PyTorch (${data.device.toUpperCase()})`;
+        }
+        if (data.current_loss !== undefined && data.current_loss !== null) {
+          document.getElementById('currentLossText').innerText = Number(data.current_loss).toFixed(3);
+        }
+        if (data.current_step !== undefined) {
+          const stepEl = document.getElementById('chartTotalSteps');
+          if (stepEl) stepEl.innerText = Number(data.current_step).toLocaleString();
+        }
+        if (data.total_params) {
+          document.getElementById('quickTotalParams').innerText = data.total_params.toLocaleString();
+        }
+        if (data.block_size) {
+          document.getElementById('quickContext').innerText = `${data.block_size} tokens`;
+        }
+        if (data.training_history && data.training_history.length > 0) {
+          latestTrainingHistory = data.training_history;
+          renderLossChart(latestTrainingHistory);
+        }
+      } catch (err) {
+        console.log("Status check:", err);
+      }
+    }
+
+    // ==========================================
+    // VISUAL GRAMMAR & SURPRISAL CHECKER CONTROLLER
+    // ==========================================
+    let currentMainFeature = 'predictor'; // 'predictor' or 'grammar'
+    let grammarData = null;
+    let grammarViewMode = 'word'; // 'word' or 'char'
+    let selectedGrammarTokenIdx = null;
+    let grammarDebounceTimer = null;
+
+    function switchMainFeature(feature) {
+      currentMainFeature = feature;
+      const predView = document.getElementById('featureView-predictor');
+      const gramView = document.getElementById('featureView-grammar');
+      const predBtn = document.getElementById('navBtn-predictor');
+      const gramBtn = document.getElementById('navBtn-grammar');
+
+      if (feature === 'predictor') {
+        if (predView) predView.classList.remove('hidden');
+        if (gramView) gramView.classList.add('hidden');
+        if (predBtn) {
+          predBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/20";
+        }
+        if (gramBtn) {
+          gramBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all text-slate-400 hover:text-slate-200";
+        }
+      } else {
+        if (predView) predView.classList.add('hidden');
+        if (gramView) gramView.classList.remove('hidden');
+        if (gramBtn) {
+          gramBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/20";
+        }
+        if (predBtn) {
+          predBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all text-slate-400 hover:text-slate-200";
+        }
+        if (!grammarData) {
+          analyzeGrammar();
+        }
+      }
+      lucide.createIcons();
+    }
+
+    function onGrammarInputChange() {
+      const input = document.getElementById('grammarInput');
+      const len = input ? input.value.length : 0;
+      const counter = document.getElementById('grammarCharCount');
+      if (counter) counter.innerText = `${len}/64`;
+      clearTimeout(grammarDebounceTimer);
+      grammarDebounceTimer = setTimeout(() => {
+        analyzeGrammar();
+      }, 300);
+    }
+
+    function setGrammarPreset(text) {
+      const input = document.getElementById('grammarInput');
+      if (input) {
+        input.value = text;
+        const counter = document.getElementById('grammarCharCount');
+        if (counter) counter.innerText = `${text.length}/64`;
+      }
+      analyzeGrammar();
+    }
+
+    function setGrammarViewMode(mode) {
+      grammarViewMode = mode;
+      const wordBtn = document.getElementById('grammarViewBtn-word');
+      const charBtn = document.getElementById('grammarViewBtn-char');
+      if (mode === 'word') {
+        if (wordBtn) wordBtn.className = "px-3 py-1.5 rounded-lg font-semibold bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 transition";
+        if (charBtn) charBtn.className = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition";
+      } else {
+        if (charBtn) charBtn.className = "px-3 py-1.5 rounded-lg font-semibold bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 transition";
+        if (wordBtn) wordBtn.className = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition";
+      }
+      if (grammarData) {
+        renderGrammarCanvas(grammarData);
+      }
+    }
+
+    async function analyzeGrammar() {
+      const input = document.getElementById('grammarInput');
+      const text = input ? input.value : "The dogs in the park runs wildly";
+      const btn = document.getElementById('btnAnalyzeGrammar');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="animate-spin inline-block mr-1">⟳</span> Analyzing...`;
+      }
+
+      try {
+        const resp = await fetch('/api/grammar/inspect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text })
+        });
+        const data = await resp.json();
+        grammarData = data;
+
+        renderGrammarCanvas(data);
+        renderSurprisalFlowline(data.tokens || []);
+        renderGrammarHealthMetrics(data);
+
+        // Auto-select first anomaly token if available, or last token
+        const tokens = data.tokens || [];
+        const firstAnomaly = tokens.find(t => t.is_anomaly && t.index > 0);
+        if (firstAnomaly) {
+          selectGrammarToken(firstAnomaly.index);
+        } else if (tokens.length > 0) {
+          selectGrammarToken(Math.min(tokens.length - 1, 1));
+        }
+      } catch (err) {
+        console.error("Grammar inspection error:", err);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i data-lucide="search" class="w-3.5 h-3.5"></i> Check Grammar`;
+          lucide.createIcons();
+        }
+      }
+    }
+
+    function renderGrammarCanvas(data) {
+      const container = document.getElementById('grammarTokensContainer');
+      const countEl = document.getElementById('canvasTokenCount');
+      if (!container || !data) return;
+      container.innerHTML = '';
+
+      const tokens = data.tokens || [];
+      const words = data.words || [];
+      if (countEl) countEl.innerText = `${tokens.length} tokens analyzed`;
+
+      if (grammarViewMode === 'word') {
+        words.forEach((wObj, wIdx) => {
+          if (wObj.word === ' ') {
+            const sp = document.createElement('span');
+            sp.className = "w-2 select-none";
+            sp.innerHTML = "&nbsp;";
+            container.appendChild(sp);
+            return;
+          }
+
+          const btn = document.createElement('button');
+          btn.id = `gramWord-${wIdx}`;
+          btn.className = "group relative px-2.5 py-1.5 rounded-xl border text-xs font-mono font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm";
+
+          let colorStyles = "bg-slate-900/90 border-slate-800 text-slate-200 hover:border-slate-600";
+          let badgeHtml = '';
+
+          if (wObj.is_anomaly) {
+            colorStyles = "bg-rose-950/80 border-rose-500/80 text-rose-200 shadow-rose-950/50 hover:bg-rose-900/90 ring-1 ring-rose-500/40";
+            badgeHtml = `<span class="px-1 py-0.2 rounded text-[9px] bg-rose-600 text-white font-bold animate-pulse">!</span>`;
+          } else if (wObj.avg_surprisal >= 2.0) {
+            colorStyles = "bg-amber-950/60 border-amber-600/70 text-amber-200 hover:bg-amber-900/80";
+          }
+
+          btn.className += ` ${colorStyles}`;
+          btn.innerHTML = `
+            <span>${wObj.word}</span>
+            ${badgeHtml}
+            <span class="text-[9px] text-slate-400 font-normal">S:${wObj.avg_surprisal.toFixed(1)}</span>
+          `;
+          btn.onclick = () => {
+            const tokenIndices = wObj.token_indices;
+            let topTokenIdx = tokenIndices[0];
+            let maxS = -1;
+            tokenIndices.forEach(idx => {
+              if (tokens[idx] && tokens[idx].surprisal > maxS) {
+                maxS = tokens[idx].surprisal;
+                topTokenIdx = idx;
+              }
+            });
+            selectGrammarToken(topTokenIdx);
+          };
+          container.appendChild(btn);
+        });
+      } else {
+        tokens.forEach(tok => {
+          const btn = document.createElement('button');
+          btn.id = `gramTok-${tok.index}`;
+          btn.className = "group relative px-2 py-1.5 rounded-lg border text-xs font-mono font-bold transition flex flex-col items-center min-w-[28px] cursor-pointer shadow-sm";
+
+          let colorStyles = "bg-slate-900/90 border-slate-800 text-slate-200 hover:border-slate-600";
+          if (tok.is_anomaly) {
+            colorStyles = "bg-rose-950/80 border-rose-500/80 text-rose-200 shadow-rose-950/50 ring-1 ring-rose-500/40";
+          } else if (tok.surprisal >= 2.0) {
+            colorStyles = "bg-amber-950/60 border-amber-600/70 text-amber-200";
+          }
+
+          const isSelected = (selectedGrammarTokenIdx === tok.index);
+          if (isSelected) {
+            colorStyles += " ring-2 ring-emerald-400 !border-emerald-400";
+          }
+
+          btn.className += ` ${colorStyles}`;
+          btn.innerHTML = `
+            <span class="text-sm">${tok.display}</span>
+            <span class="text-[8px] text-slate-400 mt-0.5">S:${tok.surprisal.toFixed(1)}</span>
+          `;
+          btn.onclick = () => selectGrammarToken(tok.index);
+          container.appendChild(btn);
+        });
+      }
+    }
+
+    function selectGrammarToken(idx) {
+      if (!grammarData || !grammarData.tokens || !grammarData.tokens[idx]) return;
+      selectedGrammarTokenIdx = idx;
+      const tok = grammarData.tokens[idx];
+
+      document.querySelectorAll('[id^="gramTok-"]').forEach(el => el.classList.remove('ring-2', 'ring-emerald-400', '!border-emerald-400'));
+      const activeTokEl = document.getElementById(`gramTok-${idx}`);
+      if (activeTokEl) {
+        activeTokEl.classList.add('ring-2', 'ring-emerald-400', '!border-emerald-400');
+      }
+
+      const charBox = document.getElementById('diagTokenCharBox');
+      const titleEl = document.getElementById('diagTokenTitle');
+      const descEl = document.getElementById('diagTokenDesc');
+      const statusBadge = document.getElementById('diagTokenStatusBadge');
+      const surprisalVal = document.getElementById('diagSurprisalVal');
+      const probVal = document.getElementById('diagProbVal');
+      const rankVal = document.getElementById('diagRankVal');
+
+      if (charBox) {
+        charBox.innerText = tok.char === ' ' ? '␣' : tok.char;
+        charBox.className = `w-12 h-12 rounded-xl flex items-center justify-center font-mono text-xl font-bold border ${
+          tok.is_anomaly ? 'bg-rose-950/80 border-rose-500 text-rose-300' : 'bg-slate-900 border-slate-700 text-white'
+        }`;
+      }
+
+      if (titleEl) titleEl.innerText = `Token #${tok.index}: '${tok.display}'`;
+      if (surprisalVal) surprisalVal.innerText = tok.surprisal.toFixed(2);
+      if (probVal) probVal.innerText = `${(tok.prob * 100).toFixed(1)}%`;
+      if (rankVal) rankVal.innerText = `#${tok.rank}`;
+
+      if (statusBadge) {
+        if (tok.is_anomaly) {
+          statusBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-rose-300 font-bold";
+          statusBadge.innerText = "Syntactic Anomaly";
+        } else if (tok.surprisal >= 2.0) {
+          statusBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-300";
+          statusBadge.innerText = "Unusual Context";
+        } else {
+          statusBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800 text-cyan-300";
+          statusBadge.innerText = "Expected & Fluent";
+        }
+      }
+
+      if (descEl) {
+        if (tok.is_anomaly) {
+          descEl.innerHTML = `High surprisal (<span class="text-rose-400 font-mono">S = ${tok.surprisal.toFixed(2)}</span>). Preceding context expected a different continuation.`;
+        } else {
+          descEl.innerHTML = `Fluent continuation consistent with preceding syntax (Surprisal = ${tok.surprisal.toFixed(2)}).`;
+        }
+      }
+
+      const suggList = document.getElementById('diagSuggestionsList');
+      if (suggList) {
+        suggList.innerHTML = '';
+        const expected = tok.expected || [];
+        if (expected.length === 0) {
+          suggList.innerHTML = `<div class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-center text-slate-500">First token in sequence has no prior context.</div>`;
+        } else {
+          expected.forEach(cand => {
+            const percent = (cand.prob * 100).toFixed(1);
+            const isMatch = (cand.char === tok.char);
+            const row = document.createElement('div');
+            row.className = `p-2.5 rounded-xl border transition flex items-center justify-between gap-3 ${
+              isMatch ? 'bg-cyan-950/30 border-cyan-500/50' : 'bg-slate-950 border-slate-800/80 hover:border-slate-700'
+            }`;
+
+            row.innerHTML = `
+              <div class="flex items-center gap-2.5 min-w-[90px]">
+                <span class="w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 font-bold text-white flex items-center justify-center font-mono text-xs">
+                  ${cand.char === ' ' ? '␣' : cand.char}
+                </span>
+                <span class="text-xs ${isMatch ? 'text-cyan-300 font-bold' : 'text-slate-300'}">${cand.display}</span>
+              </div>
+
+              <!-- Probability Bar -->
+              <div class="flex-1 max-w-[200px] hidden sm:block">
+                <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                  <span>${percent}%</span>
+                  <span class="text-slate-500 font-mono">logit ${cand.logit}</span>
+                </div>
+                <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                  <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full" style="width: ${percent}%"></div>
+                </div>
+              </div>
+
+              <div>
+                ${isMatch 
+                  ? `<span class="text-[10px] text-cyan-400 bg-cyan-950 border border-cyan-800 px-2 py-0.5 rounded font-mono">Current Input</span>`
+                  : `<button onclick="applyGrammarFix('${cand.char}')" class="px-2.5 py-1 rounded-lg bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 text-[11px] font-mono transition flex items-center gap-1">
+                      <i data-lucide="check" class="w-3 h-3"></i> Apply
+                    </button>`
+                }
+              </div>
+            `;
+            suggList.appendChild(row);
+          });
+        }
+      }
+
+      renderGrammarArc(idx, grammarData.tokens);
+      lucide.createIcons();
+    }
+
+    function renderGrammarArc(activeIdx, tokens) {
+      const arcPath = document.getElementById('grammarArcPath');
+      const arcText = document.getElementById('grammarArcText');
+      if (!arcPath || !arcText || !tokens || activeIdx <= 0) {
+        if (arcPath) arcPath.style.display = 'none';
+        if (arcText) arcText.style.display = 'none';
+        return;
+      }
+
+      const activeTok = tokens[activeIdx];
+      const attnWeights = activeTok.attn_weights || [];
+      if (attnWeights.length < 2) {
+        arcPath.style.display = 'none';
+        arcText.style.display = 'none';
+        return;
+      }
+
+      let maxW = -1;
+      let targetAntIdx = 0;
+      for (let j = 0; j < activeIdx; j++) {
+        if (attnWeights[j] !== undefined && attnWeights[j] > maxW) {
+          maxW = attnWeights[j];
+          targetAntIdx = j;
+        }
+      }
+
+      const container = document.getElementById('grammarTokensContainer');
+      const elFrom = document.getElementById(`gramTok-${activeIdx}`) || (container && container.children[activeIdx]);
+      const elTo = document.getElementById(`gramTok-${targetAntIdx}`) || (container && container.children[targetAntIdx]);
+
+      if (!container || !elFrom || !elTo) {
+        arcPath.style.display = 'none';
+        arcText.style.display = 'none';
+        return;
+      }
+
+      const cRect = container.getBoundingClientRect();
+      const fromRect = elFrom.getBoundingClientRect();
+      const toRect = elTo.getBoundingClientRect();
+
+      const x1 = (fromRect.left + fromRect.width / 2) - cRect.left;
+      const y1 = fromRect.top - cRect.top;
+      const x2 = (toRect.left + toRect.width / 2) - cRect.left;
+      const y2 = toRect.top - cRect.top;
+
+      const midX = (x1 + x2) / 2;
+      const archHeight = Math.min(45, Math.abs(x1 - x2) * 0.35 + 15);
+      const topY = Math.min(y1, y2) - archHeight;
+
+      arcPath.setAttribute('d', `M ${x1} ${y1} Q ${midX} ${topY} ${x2} ${y2}`);
+      arcPath.setAttribute('stroke', activeTok.is_anomaly ? 'url(#arcGradientAnomaly)' : 'url(#arcGradientValid)');
+      arcPath.style.display = 'block';
+
+      arcText.setAttribute('x', midX);
+      arcText.setAttribute('y', Math.max(12, topY - 4));
+      arcText.textContent = `Attn: ${(maxW * 100).toFixed(0)}% to '${tokens[targetAntIdx].display}'`;
+      arcText.style.display = 'block';
+    }
+
+    function applyGrammarFix(replacementChar) {
+      if (selectedGrammarTokenIdx === null || !grammarData) return;
+      const input = document.getElementById('grammarInput');
+      if (!input) return;
+
+      const text = input.value;
+      if (selectedGrammarTokenIdx < text.length) {
+        input.value = text.substring(0, selectedGrammarTokenIdx) + replacementChar + text.substring(selectedGrammarTokenIdx + 1);
+        const counter = document.getElementById('grammarCharCount');
+        if (counter) counter.innerText = `${input.value.length}/64`;
+        analyzeGrammar();
+      }
+    }
+
+    function renderSurprisalFlowline(tokens) {
+      const areaPath = document.getElementById('grammarAreaPath');
+      const linePath = document.getElementById('grammarLinePath');
+      const dotsGroup = document.getElementById('grammarDotsGroup');
+      if (!tokens || tokens.length === 0 || !areaPath || !linePath) return;
+
+      const minX = 25, maxX = 635;
+      const minY = 18, maxY = 105;
+      const maxS = 8.5;
+
+      const n = tokens.length;
+      const stepX = (maxX - minX) / Math.max(1, n - 1);
+
+      const points = tokens.map((tok, i) => {
+        const x = minX + i * stepX;
+        const s = Math.min(maxS, Math.max(0, tok.surprisal || 0));
+        const y = maxY - (s / maxS) * (maxY - minY);
+        return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)), tok: tok, idx: i };
+      });
+
+      const lineD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+      const areaD = `M ${points[0].x} ${maxY} ` + points.map(p => `L ${p.x} ${p.y}`).join(' ') + ` L ${points[points.length - 1].x} ${maxY} Z`;
+
+      linePath.setAttribute('d', lineD);
+      areaPath.setAttribute('d', areaD);
+
+      if (dotsGroup) {
+        dotsGroup.innerHTML = '';
+        points.forEach(p => {
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('cx', p.x);
+          circle.setAttribute('cy', p.y);
+          circle.setAttribute('r', p.tok.is_anomaly ? '4' : '2.5');
+          circle.setAttribute('fill', p.tok.is_anomaly ? '#f43f5e' : (p.tok.surprisal >= 2.0 ? '#fbbf24' : '#06b6d4'));
+          circle.setAttribute('stroke', '#ffffff');
+          circle.setAttribute('stroke-width', p.tok.is_anomaly ? '1.5' : '0.5');
+          circle.style.cursor = 'pointer';
+          circle.onclick = () => selectGrammarToken(p.idx);
+
+          const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+          title.textContent = `Token #${p.idx} '${p.tok.display}': Surprisal ${p.tok.surprisal.toFixed(2)}`;
+          circle.appendChild(title);
+          dotsGroup.appendChild(circle);
+        });
+      }
+    }
+
+    function renderGrammarHealthMetrics(data) {
+      const pplEl = document.getElementById('healthPplVal');
+      const meanEl = document.getElementById('healthMeanSurprisal');
+      const anomEl = document.getElementById('healthAnomaliesCount');
+      const gradeBadge = document.getElementById('healthGradeBadge');
+
+      if (pplEl) pplEl.innerText = data.perplexity.toFixed(1);
+      if (meanEl) meanEl.innerText = data.mean_surprisal.toFixed(2);
+      if (anomEl) anomEl.innerText = data.anomalies_count;
+
+      if (gradeBadge) {
+        const anomCount = data.anomalies_count || 0;
+        let score = Math.max(10, Math.round(100 - anomCount * 14 - (data.mean_surprisal || 0) * 4));
+        if (score >= 85) {
+          gradeBadge.className = "text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-300";
+          gradeBadge.innerText = `Health: ${score}% (Fluent)`;
+        } else if (score >= 60) {
+          gradeBadge.className = "text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-300";
+          gradeBadge.innerText = `Health: ${score}% (Unusual)`;
+        } else {
+          gradeBadge.className = "text-xs font-mono font-bold px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-rose-300";
+          gradeBadge.innerText = `Health: ${score}% (Anomalies)`;
+        }
+      }
+    }
+
+    // ==========================================
+    // MULTI-CORPUS SELECTION CONTROLLER
+    // ==========================================
+    let currentCorpusId = 'simple_wikipedia';
+    let availableCorpora = [];
+
+    async function fetchCorpusList() {
+      try {
+        const resp = await fetch('/api/corpus/list');
+        const data = await resp.json();
+        if (data.corpora) {
+          availableCorpora = data.corpora;
+          currentCorpusId = data.active_corpus || 'simple_wikipedia';
+          updateCorpusUI();
+        }
+      } catch (err) {
+        console.error("Error fetching corpus list:", err);
+      }
+    }
+
+    async function onCorpusSelectChange(newCorpusId) {
+      if (newCorpusId === currentCorpusId) return;
+      try {
+        const sel = document.getElementById('headerCorpusSelect');
+        if (sel) sel.disabled = true;
+
+        const resp = await fetch('/api/corpus/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ corpus_id: newCorpusId })
+        });
+        const resData = await resp.json();
+        if (resData.status === 'success') {
+          currentCorpusId = newCorpusId;
+          const info = resData.info;
+          if (info) {
+            if (info.current_loss !== undefined && info.current_loss !== null) {
+              const lossEl = document.getElementById('currentLossText');
+              if (lossEl) lossEl.innerText = Number(info.current_loss).toFixed(3);
+            }
+            if (info.total_params) {
+              const pEl = document.getElementById('quickTotalParams');
+              if (pEl) pEl.innerText = info.total_params.toLocaleString();
+            }
+            if (info.training_history && info.training_history.length > 0) {
+              latestTrainingHistory = info.training_history;
+              renderLossChart(latestTrainingHistory);
+            }
+            if (info.available_corpora) {
+              availableCorpora = info.available_corpora;
+            }
+          }
+          updateCorpusUI();
+
+          // Refresh active view
+          if (currentMainFeature === 'grammar') {
+            analyzeGrammar();
+          } else {
+            fetchInference(document.getElementById('promptInput').value);
+          }
+        }
+      } catch (err) {
+        console.error("Error switching corpus:", err);
+      } finally {
+        const sel = document.getElementById('headerCorpusSelect');
+        if (sel) sel.disabled = false;
+      }
+    }
+
+    function updateCorpusUI() {
+      const sel = document.getElementById('headerCorpusSelect');
+      if (sel) sel.value = currentCorpusId;
+
+      const activeObj = availableCorpora.find(c => c.id === currentCorpusId);
+      const nameEl = document.getElementById('grammarActiveCorpusName');
+      const sizeEl = document.getElementById('grammarCorpusSizeBadge');
+      if (activeObj) {
+        if (nameEl) nameEl.innerText = activeObj.name;
+        if (sizeEl) sizeEl.innerText = `${activeObj.chars.toLocaleString()} chars • ${activeObj.words.toLocaleString()} words`;
+      }
+    }
+
     // Initial window load setup
     window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
+      initBackendStatus();
+      fetchCorpusList();
       handlePromptChange();
       updateHyperparams();
       selectNode('embedding');
-      renderNextTokens();
     });
   </script>
 </body>
