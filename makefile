@@ -1,10 +1,9 @@
 IMAGE=inspectron
 APP_HOST=inspectron
-WEB_HOST=localhost:7000
+WEB_HOST=http://localhost:7001
 
 .DEFAULT_GOAL := help
-.PHONY: help
-
+.PHONY: help build start stop enter log
 
 help:
 	@echo "--------------------------------------------"
@@ -14,22 +13,17 @@ help:
 	@echo "--------------------------------------------"
 	@grep -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-
-
-
-
-build: ## build image
+build: ## build docker image
 	docker compose build
 
-start: ## start app
+start: ## start app with docker compose
 	docker compose up -d
 
 stop: ## stop app
 	docker compose down --volumes
 
-enter: ## enter shell in app
-	docker exec -it $(WEB_HOST) bash
+enter: ## enter shell in app container
+	docker compose exec web bash
 
-
-log: ## show container log
-	docker logs $(APP_HOST)  -f
+log: ## show container logs
+	docker compose logs -f web
